@@ -1,0 +1,1 @@
+{"name":"an-cot-song-push","private":true,"type":"module","scripts":{"start":"node server.mjs","keys":"node keys.mjs","test":"node --test scheduler.test.mjs"},"dependencies":{"web-push":"3.6.7"},"engines":{"node":">=24"}}

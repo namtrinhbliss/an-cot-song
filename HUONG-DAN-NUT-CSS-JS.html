@@ -1,0 +1,37 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HUONG-DAN-NUT-CSS-JS</title><style>body{font:17px/1.8 system-ui;margin:0;background:#f5f1e9;color:#202e38}main{max-width:820px;margin:24px auto;padding:24px;background:#fffdf8;border:1px solid #d2c3a4;border-radius:14px}h1,h2{line-height:1.35;color:#24516c}p,li{overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf3f7;padding:16px;border-radius:8px}code{font-size:.9em}a{color:#24516c}@media(max-width:700px){main{margin:12px;padding:18px}}</style></head><body><main><p><a href="./index.html">Trang tải</a> · <a href="./HUONG-DAN-QUAN-TRI.html">Hướng dẫn quản trị mới</a></p><h1>Nút sản phẩm và mã CSS/JavaScript quản lý từ Google Sheet</h1><h2>Cập nhật một lần cho Sheet đang dùng</h2><ul><li>Tải Code.gs mới từ trang tải. Thay toàn bộ mã trong dự án Apps Script hiện có bằng file đó, lưu. Script Properties SPREADSHEET_ID của dự án vẫn được giữ nguyên.</li><li>Chọn hàm upgradeSheet và bấm Run. Hàm bổ sung bốn cột ở Products và ba dòng cấu hình ở Settings, không tạo Sheet mới, không ghi đè bài viết/sản phẩm hay giá trị cấu hình đã có. Có thể chạy lại an toàn.</li><li>Deploy → Manage deployments → biểu tượng bút chì → Version: New version → Deploy. Giữ URL /exec hiện có.</li><li>Thay An-Cot-Song.html cũ bằng bản mới hoặc mở “Mở webapp bản mới” trên trang tải. Bản mới đã cấu hình URL /exec được bạn cung cấp.</li><li>Sau lần cập nhật này, chỉ sửa dữ liệu Sheet là đủ. Không cần triển khai lại khi đổi chữ nút, class, CSS hay JavaScript.</li></ul><p>Không chạy setup để nâng cấp Sheet đang dùng.</p><h2>Các cột Products</h2><p>| Cột | Ví dụ | Ý nghĩa |</p><p>|---|---|---|</p><p>| buy_url | https://example.com/san-pham | Địa chỉ khi bấm nút chính; để trống thì không có nút chính |</p><p>| button_label | Mua ngay | Chữ trên nút chính, để trống dùng Tìm hiểu thêm |</p><p>| button_class | nut-mua tracking-product | Class bổ sung cho nút chính, nhiều class cách nhau bằng dấu cách |</p><p>| video_url | Link YouTube hoặc video khác | YouTube được nhúng trong thẻ; nút mở video dùng URL này |</p><p>| video_button_label | Xem hướng dẫn | Chữ trên nút mở video, để trống dùng Xem video |</p><p>| video_button_class | nut-video | Class bổ sung cho nút mở video |</p><p>Link phải là URL http hoặc https đầy đủ, không dùng đường dẫn trên máy. Class được giữ cùng các class nền của ứng dụng để nút vẫn dùng được. Không nhập dấu chấm trước tên class trong Sheet. Khuyến nghị đặt tên dễ viết CSS như nut-mua, nut-video, tracking-product.</p><p>Nút chính luôn có class product-action và thuộc tính data-product-id. Nút video luôn có class product-video-action. Có thể dùng hai class này để định dạng mọi nút cùng loại.</p><h2>CSS trong Settings</h2><p>Tìm dòng key = custom_css, dán CSS thuần vào value, không bao gồm thẻ &lt;style&gt;.</p><pre><code>.nut-mua {
+  background: #e8590c;
+  color: white;
+  border-color: #c2410c;
+}
+.nut-mua:hover {
+  background: #c2410c;
+}
+.nut-video {
+  background: #e6f0ff;
+  color: #174a7e;
+}
+</code></pre><p>CSS được cập nhật trong thẻ style có id sheet-custom-css. Để trống value để bỏ CSS tùy chỉnh. Có thể dùng mọi selector, biến CSS hoặc @media hợp lệ của trình duyệt. Đây là CSS toàn trang; có thể dùng .lesson để chỉ định dạng bài đọc hoặc .product-card để chỉ định dạng thẻ sản phẩm.</p><h2>JavaScript trong Settings</h2><ul><li>custom_js: mã JavaScript thuần, không bao gồm thẻ &lt;script&gt;.</li><li>custom_js_enabled: TRUE để bật, FALSE để tắt; mặc định FALSE.</li></ul><p>Mã có thể thao tác DOM, bắt sự kiện, tải script bên ngoài, chạy thư viện hoặc thêm chức năng. Trình duyệt và hosting vẫn áp dụng các quy tắc HTTPS/CSP/CORS của chúng.</p><p>Ví dụ bắt click vào nút sản phẩm:</p><pre><code>document.addEventListener(&#x27;click&#x27;, function (event) {
+  const button = event.target.closest(&#x27;.product-action&#x27;);
+  if (!button) return;
+  console.log(&#x27;Đã bấm sản phẩm:&#x27;, button.dataset.productId);
+}, { signal: app.signal });
+</code></pre><p>Mã chạy một lần khi trang nhận cấu hình lần đầu hoặc khi custom_js/custom_js_enabled thay đổi. Không chạy lại chỉ vì tiêu đề bài hoặc giá thay đổi. Khi thay/tắt mã, app.signal bị abort và các hàm đăng ký qua app.onCleanup được gọi.</p><p>API trong mã tùy chỉnh:</p><pre><code>// Chạy sau mỗi lần ứng dụng render giao diện hoặc mở bài.
+app.onRender(function () {
+  // Định dạng hoặc gắn chức năng vào phần tử mới xuất hiện.
+});
+
+// Nếu tự tạo timer, đăng ký dọn dẹp khi đổi hoặc tắt mã.
+const timer = setInterval(function () {
+  // Việc cần chạy định kỳ.
+}, 5000);
+app.onCleanup(function () { clearInterval(timer); });
+
+// Lấy bản sao dữ liệu biên tập hiện tại.
+const products = app.getProducts();
+const articles = app.getArticles();
+</code></pre><p>Đăng ký listener với signal: app.signal như ví dụ để tự gỡ khi đổi/tắt mã. Các tác động khác do mã tự tạo cần đăng ký cleanup tương ứng. Nếu mã cũ đã sửa trạng thái toàn cục mà không có cleanup, tải lại trang để khởi động sạch.</p><p>Ví dụ tải một script ngoài:</p><pre><code>const script = document.createElement(&#x27;script&#x27;);
+script.src = &#x27;https://TEN-MIEN-CUA-BAN/ma-cua-ban.js&#x27;;
+script.async = true;
+document.head.appendChild(script);
+app.onCleanup(function () { script.remove(); });
+</code></pre><p>Thay URL ví dụ bằng URL thật. Gỡ thẻ script không tự đảo ngược mọi tác động của thư viện đã chạy; cần cleanup theo thư viện.</p><p>Lỗi runtime đồng bộ trong mã được hiển thị ở cuối trang để dễ phát hiện; JavaScript tùy chỉnh sai không làm ứng dụng ngừng đọc bài/sản phẩm. Mã bất đồng bộ tự tạo nên có xử lý lỗi riêng.</p><p>JavaScript tùy chỉnh chạy với quyền của trang và có thể truy cập dữ liệu lưu trong trình duyệt. Chỉ cấp quyền sửa Sheet cho quản trị viên tin cậy; mã từ Settings và endpoint là nội dung công khai đối với người đọc endpoint, nên không đặt mật khẩu/token bí mật trong các ô này.</p><p>Nội dung thông thường của ArticleBlocks vẫn được escape. Đặt code vào Settings.custom_js/custom_css, không dán thẻ script vào bài viết.</p></main></body></html>
