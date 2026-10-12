@@ -130,7 +130,7 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  if (req.method === 'GET') {
+  if (req.method === 'GET' || req.method === 'HEAD') {
     if (!token) {
       return res.status(400).send('Missing token parameter');
     }
@@ -154,6 +154,9 @@ module.exports = async function handler(req, res) {
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'inline; filename="ancotsong.ics"');
     res.setHeader('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate');
+    if (req.method === 'HEAD') {
+      return res.status(200).end();
+    }
     return res.status(200).send(icsContent);
   }
 
