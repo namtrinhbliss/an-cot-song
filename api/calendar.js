@@ -24,7 +24,17 @@ function generateIcs(routines, token) {
     'X-WR-CALNAME:An Cột Sống - Nhắc việc',
     'X-WR-TIMEZONE:Asia/Ho_Chi_Minh',
     'X-PUBLISHED-TTL:PT5M',
-    'REFRESH-INTERVAL;VALUE=DURATION:PT5M'
+    'REFRESH-INTERVAL;VALUE=DURATION:PT5M',
+    'BEGIN:VTIMEZONE',
+    'TZID:Asia/Ho_Chi_Minh',
+    'X-LIC-LOCATION:Asia/Ho_Chi_Minh',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0700',
+    'TZOFFSETTO:+0700',
+    'TZNAME:+07',
+    'DTSTART:19700101T000000',
+    'END:STANDARD',
+    'END:VTIMEZONE'
   ];
 
   const now = new Date();
@@ -77,9 +87,10 @@ function generateIcs(routines, token) {
     // Alarm (VALARM)
     const lead = (r.remind && typeof r.remind.lead === 'number') ? r.remind.lead : 0;
     lines.push('BEGIN:VALARM');
+    lines.push(`X-WR-ALARMUID:acs-alarm-${r.id}-${token || 'default'}`);
     lines.push('ACTION:DISPLAY');
     lines.push(`DESCRIPTION:${title}`);
-    lines.push(`TRIGGER:-PT${lead}M`);
+    lines.push(lead > 0 ? `TRIGGER:-PT${lead}M` : 'TRIGGER:-PT0S');
     lines.push('END:VALARM');
 
     lines.push('END:VEVENT');
