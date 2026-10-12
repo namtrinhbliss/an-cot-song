@@ -126,10 +126,36 @@
     }
   }
 
+  function isIOSDevice() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  function isStandalonePWA() {
+    return Boolean(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+  }
+
+  function showGuideModal(title, htmlContent) {
+    if (typeof openSheet === 'function' && typeof sheetHead === 'function') {
+      openSheet(
+        sheetHead(title) +
+        '<div class="stack" style="text-align:left">' +
+          htmlContent +
+          '<button class="btn block" data-act="later" style="margin-top:.8rem">Đã hiểu</button>' +
+        '</div>',
+        title
+      );
+    } else {
+      alert(title + '\n\n' + htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+    }
+  }
+
   function getStatusText() {
+    if (isIOSDevice() && !isStandalonePWA() && !('Notification' in window)) {
+      return '💡 iPhone Safari: Bác dùng "Đăng ký Lịch iPhone" ở trên để chuông kêu khi tắt máy.';
+    }
     if (!('Notification' in window)) return '⚠️ Thiết bị không hỗ trợ thông báo Notification.';
     if (Notification.permission === 'granted') return '✅ Đã bật thông báo trên thiết bị.';
-    if (Notification.permission === 'denied') return '⚠️ Trình duyệt đang chặn thông báo. Bác cần vào Cài đặt để Cho phép.';
+    if (Notification.permission === 'denied') return '⚠️ Trình duyệt đang chặn thông báo. Bác bấm vào biểu tượng Ổ khóa 🔒 cạnh tên miền để Cho phép.';
     return 'Chưa bật thông báo trên máy.';
   }
 
@@ -146,7 +172,10 @@
       '<div class="sec-h"><h2>🔔 Đồng bộ Lịch & Chuông điện thoại</h2></div>' +
       '<p>Đăng ký lịch nhắc trực tiếp vào ứng dụng <b>Lịch / Đồng hồ</b> của điện thoại. <b>Khóa màn hình, tắt máy hoàn toàn vẫn đổ chuông báo thức đúng giờ!</b></p>' +
       '<div style="background:var(--primary-soft,#dde9f1);padding:.9rem 1.1rem;border-radius:.9rem;margin:.4rem 0">' +
-        '<div style="font-weight:700;color:var(--primary-deep,#1d3f58);margin-bottom:.3rem">Trạng thái đồng bộ tự động:</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.3rem">' +
+          '<div style="font-weight:700;color:var(--primary-deep,#1d3f58)">Trạng thái đồng bộ tự động:</div>' +
+          '<button id="cal-sync-now-btn" class="btn alt" type="button" style="padding:.25rem .7rem;font-size:.82rem;min-height:unset">🔄 Đồng bộ ngay</button>' +
+        '</div>' +
         '<div id="cal-active-count" style="font-weight:600;color:var(--primary,#2b5675);margin-bottom:.4rem">' + active.length + ' việc đang bật nhắc nhở</div>' +
         '<div id="cal-active-list" class="small muted" style="line-height:1.6">' +
           (active.length ? active.map(r => `• <b>${r.title}</b> (${r.time})`).join('<br>') : '<span class="muted">Chưa có việc nào bật nhắc. Bác thêm việc ở bên dưới.</span>') +
@@ -156,6 +185,12 @@
         `<a class="btn" href="${webcalUrl}" style="text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">📅 Đăng ký Lịch iPhone / iPad</a>` +
         `<a class="btn alt" target="_blank" rel="noopener noreferrer" href="${googleCalUrl}" style="text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">🗓️ Đồng bộ Google Calendar (Android)</a>` +
         `<a class="btn alt" download="ancotsong.ics" href="${httpFeedUrl}" style="text-decoration:none">📥 Tải file Lịch (.ics)</a>` +
+      '</div>' +
+      '<div style="background:#fff3cd;color:#7a5800;padding:.85rem 1rem;border-radius:.8rem;border:1px solid #ffe8a1;line-height:1.55;font-size:.88rem;margin-top:.7rem">' +
+        '<b>⚠️ Lưu ý quan trọng cho iPhone (để chuông kêu khi tắt màn hình):</b><br>' +
+        'Khi bấm Đăng ký Lịch, ở màn hình <i>"Thêm lịch Đăng ký"</i> → bác bấm vào <b>"Chi tiết đăng ký"</b>:<br>' +
+        '👉 Hãy nhớ <b>TẮT mục "Xóa cảnh báo"</b> (để công tắc chuyển sang <b>màu xám</b>).<br>' +
+        '<small><i>*Nếu để BẬT xanh mục "Xóa cảnh báo", iPhone sẽ chủ động xóa hết chuông báo thức mà hệ thống đã cài sẵn!</i></small>' +
       '</div>' +
       '<div class="note" style="margin-top:.8rem">' +
         '<p class="small muted">' +
@@ -183,8 +218,26 @@
   }
   window.checkLocalReminders = checkLocalReminders;
 
-  // Lắng nghe sự kiện người dùng tương tác với nút thông báo
+  // Lắng nghe sự kiện người dùng tương tác với nút thông báo & đồng bộ
   document.addEventListener('click', async e => {
+    const syncBtn = e.target.closest('#cal-sync-now-btn');
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.textContent = '⏳ Đang đồng bộ...';
+      try {
+        await syncCalendarFeed();
+        syncBtn.textContent = '✅ Đã đồng bộ ' + new Date().toLocaleTimeString('vi-VN');
+      } catch (err) {
+        syncBtn.textContent = '❌ Lỗi kết nối';
+      } finally {
+        setTimeout(() => {
+          syncBtn.disabled = false;
+          syncBtn.textContent = '🔄 Đồng bộ ngay';
+        }, 3500);
+      }
+      return;
+    }
+
     const button = e.target.closest('[data-push]');
     if (!button) return;
 
@@ -193,10 +246,43 @@
 
     try {
       if (act === 'enable') {
-        if (!('Notification' in window)) {
-          alert('Thiết bị này không hỗ trợ thông báo Notification.');
+        if (isIOSDevice() && !isStandalonePWA() && !('Notification' in window)) {
+          showGuideModal(
+            '📱 Hướng dẫn thông báo trên iPhone',
+            '<p>Trên trình duyệt Safari của iPhone, Apple <b>không cho phép trang web đang chạy trong tab được gửi thông báo</b>.</p>' +
+            '<div class="card" style="background:var(--primary-soft,#dde9f1);border:none;margin:.5rem 0;padding:.8rem">' +
+              '<b>Cách 1 (Khuyên dùng — Không cần cài đặt):</b><br>' +
+              'Bác dùng nút <b>"📅 Đăng ký Lịch iPhone"</b> ở khung phía trên. Ứng dụng Lịch / Đồng hồ của iPhone sẽ tự động đổ chuông báo thức đúng giờ kể cả khi khóa màn hình hoặc tắt máy!' +
+            '</div>' +
+            '<div class="card" style="background:var(--surface);border:1px solid var(--line);margin:.5rem 0;padding:.8rem">' +
+              '<b>Cách 2 (Bật biểu ngữ thông báo qua Màn hình chính):</b><br>' +
+              '1️⃣ Bấm nút <b>Chia sẻ</b> (biểu tượng hình ô vuông có mũi tên lên ⬆️ ở thanh dưới cùng Safari).<br>' +
+              '2️⃣ Chọn <b>"Thêm vào Màn hình chính"</b> (Add to Home Screen).<br>' +
+              '3️⃣ Mở icon <b>"An Cột Sống"</b> từ Màn hình chính, vào lại Cài đặt bấm "Bật thông báo trên máy".' +
+            '</div>'
+          );
           return;
         }
+
+        if (!('Notification' in window)) {
+          alert('Thiết bị này không hỗ trợ Web Notification.');
+          return;
+        }
+
+        if (Notification.permission === 'denied') {
+          showGuideModal(
+            '🔒 Trình duyệt đang chặn thông báo',
+            '<p>Trình duyệt đã đánh dấu "Chặn" nên trang web không thể tự bật thông báo. Bác vui lòng mở khóa theo các bước sau:</p>' +
+            '<div class="card" style="background:var(--primary-soft,#dde9f1);border:none;margin:.5rem 0;padding:.8rem">' +
+              '<b>Bước 1:</b> Nhìn lên thanh địa chỉ trên cùng của trình duyệt (cạnh chữ <code>ancotsong.khoedepchudong.com</code>).<br>' +
+              '<b>Bước 2:</b> Bấm vào biểu tượng <b>Cài đặt trang web</b> (hình 2 thanh gạt hoặc chiếc ổ khóa 🔒).<br>' +
+              '<b>Bước 3:</b> Ở dòng <b>Thông báo (Notifications)</b>, chuyển từ <b>Chặn</b> sang <b>Cho phép (Allow)</b>.<br>' +
+              '<b>Bước 4:</b> Bấm phím <b>F5</b> hoặc Tải lại trang để áp dụng!' +
+            '</div>'
+          );
+          return;
+        }
+
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
           if (typeof S !== 'undefined') {
@@ -213,6 +299,14 @@
         }
       } else if (act === 'test') {
         if (!('Notification' in window)) {
+          if (isIOSDevice() && !isStandalonePWA()) {
+            showGuideModal(
+              '📱 Thử nghiệm thông báo trên iPhone',
+              '<p>Trên Safari, Apple chỉ cho phép thông báo khi thêm ứng dụng ra Màn hình chính hoặc dùng luồng Lịch hệ thống.</p>' +
+              '<p>Bác dùng nút <b>"📅 Đăng ký Lịch iPhone / iPad"</b> ở khung trên để chuông báo thức reo trực tiếp trên điện thoại nhé!</p>'
+            );
+            return;
+          }
           alert('Thiết bị này không hỗ trợ thông báo Notification.');
           return;
         }
