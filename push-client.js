@@ -57,11 +57,15 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, routines: active, completed })
       });
-      if (res.ok) {
-        updateCalendarStatus();
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || ('Lỗi máy chủ (' + res.status + ')'));
       }
+      updateCalendarStatus();
+      return true;
     } catch (e) {
       console.warn('Sync calendar feed error:', e);
+      throw e;
     }
   }
 
@@ -230,12 +234,18 @@
         '👉 Hãy nhớ <b>TẮT mục "Xóa cảnh báo"</b> (để công tắc chuyển sang <b>màu xám</b>).<br>' +
         '<small><i>*Nếu để BẬT xanh mục "Xóa cảnh báo", iPhone sẽ chủ động xóa hết chuông báo thức mà hệ thống đã cài sẵn!</i></small>' +
       '</div>' +
+      '<div style="background:#e8f4fd;color:#184a6e;padding:.85rem 1rem;border-radius:.8rem;border:1px solid #bce1fb;line-height:1.55;font-size:.88rem;margin-top:.7rem">' +
+        '<b>📱 Cách làm mới Lịch iPhone khi vừa sửa/thêm việc:</b><br>' +
+        '1️⃣ Bấm nút <b>"🔄 Đồng bộ ngay"</b> ở khung trên.<br>' +
+        '2️⃣ Mở ứng dụng <b>Lịch</b> của iPhone → bấm vào chữ <b>"Lịch"</b> (ở giữa mép dưới màn hình) → <b>dùng ngón tay vuốt từ trên xuống dưới</b> để iPhone tải ngay việc mới về máy!<br>' +
+        '<small><i>*Mẹo: Nếu mã đồng bộ <code>${token}</code> là mã mới, bác bấm lại "📅 Đăng ký Lịch iPhone" 1 lần để máy đồng bộ chính xác.</i></small>' +
+      '</div>' +
       '<div class="note" style="margin-top:.8rem">' +
         '<p class="small muted">' +
           '💡 <b>Cơ chế xóa và đồng bộ tự động:</b><br>' +
           '• Bác chỉ cần bấm nút <b>"Đăng ký Lịch"</b> 1 lần duy nhất.<br>' +
           '• Khi bác thay đổi giờ, tắt hoặc xóa bất kỳ việc nào trên trang web này: Hệ thống sẽ tự động cập nhật. Ứng dụng Lịch trên điện thoại sẽ tự động rà soát định kỳ (mỗi vài phút) và <b>tự động xóa các việc đã hủy</b>, chỉ giữ lại các việc đang bật hoạt động.<br>' +
-          '• Hoàn toàn không cần đăng nhập Google, bảo mật và riêng tư 100%.' +
+          '• Mã đồng bộ riêng của thiết bị này: <code>' + token + '</code>.' +
         '</p>' +
       '</div>' +
     '</div>' +
@@ -266,12 +276,12 @@
         await syncCalendarFeed();
         syncBtn.textContent = '✅ Đã đồng bộ ' + new Date().toLocaleTimeString('vi-VN');
       } catch (err) {
-        syncBtn.textContent = '❌ Lỗi kết nối';
+        syncBtn.textContent = '❌ Lỗi: ' + (err.message || 'Không kết nối được');
       } finally {
         setTimeout(() => {
           syncBtn.disabled = false;
           syncBtn.textContent = '🔄 Đồng bộ ngay';
-        }, 3500);
+        }, 4000);
       }
       return;
     }

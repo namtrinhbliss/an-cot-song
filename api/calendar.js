@@ -186,6 +186,7 @@ module.exports = async function handler(req, res) {
       await put(`calendars/${postToken}.json`, JSON.stringify(dataToSave), {
         access: 'public',
         addRandomSuffix: false,
+        allowOverwrite: true,
         contentType: 'application/json'
       });
 
