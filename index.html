@@ -1146,7 +1146,7 @@ function beep(n){
 function alertCard(r,k,now){
   const kd=KINDS.find(x=>x.id===r.kind)||KINDS[4], n=r.items&&r.items.length;
   return '<div class="card" style="box-shadow:none"><div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span class="pic" style="width:3.2rem;height:3.2rem;border-radius:.9rem;background:var(--sos-soft);color:var(--bad);display:grid;place-items:center;flex:none">'+ic(kd.ic)+'</span><div style="min-width:0"><h3>'+esc(r.title)+'</h3><p><b>'+esc(msgFor(r,k,now))+'</b></p>'+(n?'<p class="muted small">'+n+' mục cần làm: '+esc(r.items.map(i=>i.name).join(', '))+'</p>':'')+'</div></div>'+
-    '<div class="row" style="margin-top:.8rem"><button class="btn" data-act="goto" data-id="'+r.id+'">'+ic('check')+'Làm ngay</button><button class="btn alt" data-act="snooze" data-id="'+r.id+'">Nhắc lại sau 5 phút</button></div></div>';
+    '<div class="row" style="margin-top:.8rem;gap:.5rem;flex-wrap:wrap"><button class="btn" data-act="done" data-id="'+r.id+'">'+ic('check')+'Đã làm xong</button><button class="btn alt" data-act="goto" data-id="'+r.id+'">Chi tiết</button><button class="btn alt" data-act="snooze" data-id="'+r.id+'">Nhắc lại sau 5 phút</button></div></div>';
 }
 function openAlert(list){
   const now=Date.now(), k=dkey();
@@ -1684,6 +1684,7 @@ document.addEventListener('click',e=>{
     case 'tick1': { const r=S.routines.find(x=>x.id===b.dataset.id); if(!r) break; toggleItem(r,UI.sel,'self'); render(); afterTick(r,UI.sel); break; }
     case 'item': { const r=S.routines.find(x=>x.id===b.dataset.id); if(!r) break; toggleItem(r,UI.sel,b.dataset.it); render(); afterTick(r,UI.sel); break; }
     case 'all': { const r=S.routines.find(x=>x.id===b.dataset.id); if(!r) break; setAll(r,UI.sel,true); render(); afterTick(r,UI.sel); break; }
+    case 'done': { const r=S.routines.find(x=>x.id===b.dataset.id); if(!r) break; const k=dkey(); setAll(r,k,true); closeSheet(); afterTick(r,k); render(); break; }
     case 'goto': goToday(b.dataset.id); break;
     case 'snooze': { UI.snooze[b.dataset.id]=Date.now()+5*6e4; closeSheet(); toast('Sẽ nhắc lại sau 5 phút'); break; }
     case 'later': UI.quietUntil=Date.now()+30*6e4; closeSheet(); updateAlertUI(); break;

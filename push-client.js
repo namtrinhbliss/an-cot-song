@@ -23,16 +23,39 @@
     return S.routines.filter(r => r && r.remind && r.remind.on);
   }
 
-  // Tự động đẩy danh sách việc đang hoạt động lên máy chủ Vercel Blob để luồng Lịch luôn mới nhất
+  // Lấy danh sách các việc đã bấm làm xong / đánh dấu hoàn thành gần đây
+  function getCompletedRoutines() {
+    if (typeof S === 'undefined' || !S.log) return [];
+    const completed = [];
+    const now = new Date();
+    // Quét 14 ngày gần nhất và hôm nay
+    for (let i = 0; i <= 14; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const k = (typeof dkey === 'function') ? dkey(d) : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!S.log[k]) continue;
+      (S.routines || []).forEach(r => {
+        if (!r || !r.id) return;
+        const done = (typeof isComplete === 'function') ? isComplete(r, k) : false;
+        if (done) {
+          completed.push({ id: r.id, date: k });
+        }
+      });
+    }
+    return completed;
+  }
+
+  // Tự động đẩy danh sách việc đang hoạt động và việc đã làm lên máy chủ Vercel Blob để luồng Lịch luôn mới nhất
   let syncTimer = null;
   async function syncCalendarFeed() {
     const token = getCalendarToken();
     const active = getActiveRoutines();
+    const completed = getCompletedRoutines();
     try {
       const res = await fetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, routines: active })
+        body: JSON.stringify({ token, routines: active, completed })
       });
       if (res.ok) {
         updateCalendarStatus();
@@ -112,16 +135,31 @@
 
   function updateCalendarStatus() {
     const active = getActiveRoutines();
+    const completed = getCompletedRoutines();
+    const todayKey = (typeof dkey === 'function') ? dkey() : '';
+    const doneToday = todayKey ? completed.filter(c => c.date === todayKey).length : 0;
+
     const countEl = document.getElementById('cal-active-count');
     if (countEl) {
-      countEl.textContent = active.length + ' việc đang bật nhắc nhở';
+      let txt = active.length + ' việc đang bật nhắc nhở';
+      if (doneToday > 0) {
+        txt += ` • Đã xong ${doneToday} việc hôm nay (đã tắt chuông ngày này)`;
+      }
+      countEl.textContent = txt;
     }
     const listEl = document.getElementById('cal-active-list');
     if (listEl) {
       if (active.length === 0) {
         listEl.innerHTML = '<span class="muted">Hiện chưa có việc nào bật nhắc nhở. Lịch điện thoại sẽ tự động làm trống.</span>';
       } else {
-        listEl.innerHTML = active.map(r => `• <b>${r.title}</b> (${r.time})`).join('<br>');
+        listEl.innerHTML = active.map(r => {
+          const isDoneToday = todayKey && completed.some(c => c.id === r.id && c.date === todayKey);
+          const lead = (r.remind && r.remind.lead > 0) ? ` (Nhắc trước ${r.remind.lead}p và đúng ${r.time})` : ` (${r.time})`;
+          if (isDoneToday) {
+            return `• <span style="text-decoration:line-through;color:var(--muted)"><b>${r.title}</b> ${lead}</span> <b style="color:var(--ok,#1f8b4c)">[Đã xong hôm nay - Không báo]</b>`;
+          }
+          return `• <b>${r.title}</b> ${lead}`;
+        }).join('<br>');
       }
     }
   }

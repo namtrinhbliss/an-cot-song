@@ -14,7 +14,7 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
-function generateIcs(routines, token) {
+function generateIcs(routines, token, completed) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -47,12 +47,18 @@ function generateIcs(routines, token) {
     const h = parseInt(hStr, 10) || 7;
     const m = parseInt(mStr, 10) || 0;
 
-    const startLocal = `${todayYMD}T${pad(h)}${pad(m)}00`;
+    // Use routine's start date (r.from) if available, so recurring sequence starts cleanly in the past
+    let startYMD = todayYMD;
+    if (r.from && /^\d{4}-\d{2}-\d{2}$/.test(r.from)) {
+      startYMD = r.from.replace(/-/g, '');
+    }
+
+    const startLocal = `${startYMD}T${pad(h)}${pad(m)}00`;
     // 15-minute duration
     const endMinutes = h * 60 + m + 15;
     const endH = Math.floor(endMinutes / 60) % 24;
     const endM = endMinutes % 60;
-    const endLocal = `${todayYMD}T${pad(endH)}${pad(endM)}00`;
+    const endLocal = `${startYMD}T${pad(endH)}${pad(endM)}00`;
 
     const uid = `acs-${r.id}-${token || 'default'}@ancotsong.khoedepchudong.com`;
     const title = escIcs('An Cột Sống: ' + (r.title || 'Nhắc việc'));
@@ -84,14 +90,54 @@ function generateIcs(routines, token) {
       lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${rep.dates.join(',')}`);
     }
 
+    // EXDATE: Loại trừ ngày đã bấm làm xong / hoàn thành để không báo ngày đó nữa
+    const doneDates = (completed || [])
+      .filter(c => c && c.id === r.id && c.date)
+      .map(c => {
+        const d = String(c.date).replace(/[^0-9]/g, '');
+        return `${d}T${pad(h)}${pad(m)}00`;
+      })
+      .filter(Boolean);
+
+    if (doneDates.length) {
+      lines.push(`EXDATE;TZID=Asia/Ho_Chi_Minh:${doneDates.join(',')}`);
+    }
+
     // Alarm (VALARM)
     const lead = (r.remind && typeof r.remind.lead === 'number') ? r.remind.lead : 0;
+    
+    // 1. Chuông nhắc trước lead phút (nếu chọn 5p, 10p, 15p...)
+    if (lead > 0) {
+      lines.push('BEGIN:VALARM');
+      lines.push(`X-WR-ALARMUID:acs-alarm-pre-${r.id}-${token || 'default'}`);
+      lines.push('ACTION:DISPLAY');
+      lines.push(`DESCRIPTION:${title} (Còn ${lead} phút nữa tới giờ)`);
+      lines.push(`TRIGGER:-PT${lead}M`);
+      lines.push('END:VALARM');
+    }
+
+    // 2. Chuông nhắc đúng giờ hẹn
     lines.push('BEGIN:VALARM');
-    lines.push(`X-WR-ALARMUID:acs-alarm-${r.id}-${token || 'default'}`);
+    lines.push(`X-WR-ALARMUID:acs-alarm-due-${r.id}-${token || 'default'}`);
     lines.push('ACTION:DISPLAY');
-    lines.push(`DESCRIPTION:${title}`);
-    lines.push(lead > 0 ? `TRIGGER:-PT${lead}M` : 'TRIGGER:-PT0S');
+    lines.push(`DESCRIPTION:${title} (Đến giờ làm)`);
+    lines.push('TRIGGER:-PT0S');
     lines.push('END:VALARM');
+
+    // 3. Chuông nhắc quá giờ (nếu cài count > 1)
+    const count = (r.remind && typeof r.remind.count === 'number') ? r.remind.count : 1;
+    const gap = (r.remind && typeof r.remind.gap === 'number') ? r.remind.gap : 10;
+    if (count > 1) {
+      for (let c = 1; c < count; c++) {
+        const lateMin = c * gap;
+        lines.push('BEGIN:VALARM');
+        lines.push(`X-WR-ALARMUID:acs-alarm-late-${c}-${r.id}-${token || 'default'}`);
+        lines.push('ACTION:DISPLAY');
+        lines.push(`DESCRIPTION:${title} (Quá giờ ${lateMin} phút)`);
+        lines.push(`TRIGGER:PT${lateMin}M`);
+        lines.push('END:VALARM');
+      }
+    }
 
     lines.push('END:VEVENT');
   }
@@ -122,8 +168,22 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Missing token' });
       }
 
-      const routines = Array.isArray(body.routines) ? body.routines : [];
-      await put(`calendars/${postToken}.json`, JSON.stringify(routines), {
+      let routines = [];
+      let completed = [];
+      if (Array.isArray(body)) {
+        routines = body;
+      } else if (body && typeof body === 'object') {
+        routines = Array.isArray(body.routines) ? body.routines : [];
+        completed = Array.isArray(body.completed) ? body.completed : [];
+      }
+
+      const dataToSave = {
+        routines,
+        completed,
+        updatedAt: Date.now()
+      };
+
+      await put(`calendars/${postToken}.json`, JSON.stringify(dataToSave), {
         access: 'public',
         addRandomSuffix: false,
         contentType: 'application/json'
@@ -132,6 +192,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         count: routines.length,
+        completedCount: completed.length,
         token: postToken,
         feedUrl: `https://${req.headers.host || 'ancotsong.khoedepchudong.com'}/api/calendar?token=${postToken}`
       });
@@ -147,12 +208,20 @@ module.exports = async function handler(req, res) {
     }
 
     let routines = [];
+    let completed = [];
     try {
       const blobInfo = await head(`calendars/${token}.json`);
       if (blobInfo && blobInfo.url) {
         const fetchRes = await fetch(blobInfo.url, { cache: 'no-store' });
         if (fetchRes.ok) {
-          routines = await fetchRes.json();
+          const raw = await fetchRes.json();
+          if (Array.isArray(raw)) {
+            routines = raw;
+            completed = [];
+          } else if (raw && typeof raw === 'object') {
+            routines = Array.isArray(raw.routines) ? raw.routines : [];
+            completed = Array.isArray(raw.completed) ? raw.completed : [];
+          }
         }
       }
     } catch (err) {
@@ -160,7 +229,7 @@ module.exports = async function handler(req, res) {
       console.warn('Fetch blob error or not found:', err.message);
     }
 
-    const icsContent = generateIcs(routines, token);
+    const icsContent = generateIcs(routines, token, completed);
 
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'inline; filename="ancotsong.ics"');
