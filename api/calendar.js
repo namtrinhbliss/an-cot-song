@@ -67,7 +67,9 @@ function generateIcs(routines, token, completed) {
     if (Array.isArray(r.items) && r.items.length) {
       desc += (desc ? '\n' : '') + 'Các mục: ' + r.items.map(i => i.name + (i.qty ? ` (${i.qty})` : '')).join(', ');
     }
-    const description = escIcs(desc || 'Mở ứng dụng để đánh dấu hoàn thành.');
+    const appUrl = 'https://ancotsong.khoedepchudong.com/#hom-nay';
+    desc += (desc ? '\n\n' : '') + '👉 Bấm vào đây để mở ứng dụng đánh dấu hoàn thành:\n' + appUrl;
+    const description = escIcs(desc);
 
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${uid}`);
@@ -76,6 +78,7 @@ function generateIcs(routines, token, completed) {
     lines.push(`DTEND;TZID=Asia/Ho_Chi_Minh:${endLocal}`);
     lines.push(`SUMMARY:${title}`);
     lines.push(`DESCRIPTION:${description}`);
+    lines.push(`URL:${appUrl}`);
     lines.push(`STATUS:CONFIRMED`);
 
     // Recurrence rule
