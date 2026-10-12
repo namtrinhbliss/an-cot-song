@@ -11,14 +11,23 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function url(v,image=false){try{const u=new URL(v);return (u.protocol==='https:'||(!image&&['http:','mailto:','tel:'].includes(u.protocol)))?u.href:'';}catch(e){return '';}}
 function video(v){if(/^[\w-]{11}$/.test(v))return v;try{const u=new URL(v),h=u.hostname;let id='';if(h==='youtu.be')id=u.pathname.split('/')[1];else if(['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(h))id=u.searchParams.get('v')||u.pathname.split('/').find((p,i,a)=>['embed','shorts','live'].includes(a[i-1]));return /^[\w-]{11}$/.test(id||'')?id:'';}catch(e){return '';}}
 function decode(v){if(!String(v||'').startsWith(PREFIX))return null;try{const d=JSON.parse(v.slice(PREFIX.length));return d.v===1&&typeof d.html==='string'?d.html:null;}catch(e){return null;}}
-function legacy(v){return String(v||'').split(/(\[\[(?:product|products|youtube):[^\]]*\]\])/gi).map(t=>{const m=t.match(/^\[\[(product|products|youtube):([^\]]*)\]\]$/i);if(!m)return esc(t).replace(/\n/g,'<br>');return m[1].toLowerCase()==='youtube'?'<acs-youtube video="'+esc(video(m[2].trim()))+'"></acs-youtube>':'<acs-products ids="'+esc(m[2].trim())+'"></acs-products>';}).join('');}
+function legacy(v){return String(v||'').split(/(\[\[(?:product|products|youtube):[^\]]*\]\]|<acs-(?:products|youtube)\b[^>]*>[\s\S]*?<\/acs-(?:products|youtube)>)/gi).map(t=>{const mTag=t.match(/^<acs-(products|youtube)\b([^>]*)>[\s\S]*?<\/acs-(products|youtube)>$/i);if(mTag)return t;const m=t.match(/^\[\[(product|products|youtube):([^\]]*)\]\]$/i);if(!m)return esc(t).replace(/\n/g,'<br>');return m[1].toLowerCase()==='youtube'?'<acs-youtube video="'+esc(video(m[2].trim()))+'"></acs-youtube>':'<acs-products ids="'+esc(m[2].trim())+'"></acs-products>';}).join('');}
 function clean(html,options={}){const src=document.createElement('template');src.innerHTML=String(html||'');const out=document.createElement('div');const tags=new Set(['P','DIV','H2','H3','H4','STRONG','B','EM','I','U','S','BLOCKQUOTE','UL','OL','LI','BR','HR','A','IMG','SPAN','FIGURE','FIGCAPTION']);
 function walk(node,parent){if(node.nodeType===3){parent.append(document.createTextNode(node.textContent));return;}if(node.nodeType!==1)return;const tag=node.tagName;if(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','SVG','MATH','FORM','INPUT','BUTTON','TEXTAREA'].includes(tag))return;
- if(tag==='ACS-PRODUCTS'){const ids=[...new Set(String(node.getAttribute('ids')||'').split(',').map(x=>x.trim()).filter(x=>x&&!/[\[\]<>"'\s]/.test(x)))];if(!ids.length)return;
- if(options.productsHTML){const t=document.createElement('template');t.innerHTML=options.productsHTML(ids);parent.append(t.content);return;}
- const n=document.createElement('acs-products');n.setAttribute('ids',ids.join(','));n.setAttribute('contenteditable','false');n.setAttribute('tabindex','0');n.textContent='🛍 '+ids.map(id=>options.productName?options.productName(id):'Sản phẩm').join(' · ');parent.append(n);return;}
- if(tag==='ACS-YOUTUBE'){const id=video(node.getAttribute('video')||'');if(!id)return;if(options.youtubeHTML){const t=document.createElement('template');t.innerHTML=options.youtubeHTML(id);parent.append(t.content);return;}
- const n=document.createElement('acs-youtube');n.setAttribute('video',id);n.setAttribute('contenteditable','false');n.setAttribute('tabindex','0');n.textContent='▶ Video YouTube';parent.append(n);return;}
+  if(tag==='ACS-PRODUCTS'){const ids=[...new Set(String(node.getAttribute('ids')||'').split(',').map(x=>x.trim()).filter(x=>x&&!/[\[\]<>"'\s]/.test(x)))];if(!ids.length)return;
+   const align=node.getAttribute('align')||'';
+   if(options.productsHTML){const t=document.createElement('template');t.innerHTML=options.productsHTML(ids,node);parent.append(t.content);return;}
+   const n=document.createElement('acs-products');n.setAttribute('ids',ids.join(','));if(align)n.setAttribute('align',align);n.setAttribute('contenteditable','false');n.setAttribute('tabindex','0');
+   if(options.editorChip){n.innerHTML=options.editorChip('products',ids,align);}
+   else{n.textContent='🛍 '+ids.map(id=>options.productName?options.productName(id):'Sản phẩm').join(' · ');}
+   parent.append(n);return;}
+  if(tag==='ACS-YOUTUBE'){const id=video(node.getAttribute('video')||'');if(!id)return;
+   const align=node.getAttribute('align')||'';
+   if(options.youtubeHTML){const t=document.createElement('template');t.innerHTML=options.youtubeHTML(id,node);parent.append(t.content);return;}
+   const n=document.createElement('acs-youtube');n.setAttribute('video',id);if(align)n.setAttribute('align',align);n.setAttribute('contenteditable','false');n.setAttribute('tabindex','0');
+   if(options.editorChip){n.innerHTML=options.editorChip('youtube',id,align);}
+   else{n.textContent='▶ Video YouTube';}
+   parent.append(n);return;}
  if(!tags.has(tag)){node.childNodes.forEach(c=>walk(c,parent));return;}const n=document.createElement(tag.toLowerCase());
  if(['normal','bold','400','700'].includes(node.style.fontWeight))n.style.fontWeight=node.style.fontWeight;if(['normal','italic'].includes(node.style.fontStyle))n.style.fontStyle=node.style.fontStyle;if(['none','underline','line-through'].includes(node.style.textDecoration))n.style.textDecoration=node.style.textDecoration;
  const align=node.style.textAlign;if(['left','center','right','justify'].includes(align))n.style.textAlign=align;
@@ -445,19 +454,49 @@ button:disabled{cursor:default}button,a{transition:background-color .15s,color .
 @media(prefers-reduced-motion:reduce){.hold-progress-fill{transition:none}}
 
 /* Video and multiple products within article content */
-.youtube-block{margin:1rem 0;min-width:0;width:100%}
+.youtube-block{margin:1.2rem 0;min-width:0;max-width:100%}
+.youtube-block.align-center{margin-inline:auto;text-align:center}
+.youtube-block.align-left{margin-right:auto;margin-left:0;text-align:left}
+.youtube-block.align-right{margin-left:auto;margin-right:0;text-align:right}
+.youtube-block.align-center .youtube-player{margin-inline:auto}
+.youtube-block.align-left .youtube-player{margin-left:0;margin-right:auto}
+.youtube-block.align-right .youtube-player{margin-left:auto;margin-right:0}
 .youtube-player{position:relative;width:100%;aspect-ratio:16/9;background:#17212a;border-radius:.7rem;overflow:hidden}
 .youtube-player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .youtube-block figcaption{margin-top:.35rem;overflow-wrap:anywhere}
 .youtube-block a{color:var(--primary-deep);text-decoration:underline}
-.products-section{margin:1rem 0;min-width:0;max-width:100%}
-.products-row{display:flex;gap:.7rem;overflow-x:auto;max-width:100%;padding:.35rem .2rem .8rem;scroll-snap-type:x proximity;overscroll-behavior-x:contain;scrollbar-color:var(--primary) var(--surface2)}
-.products-row>.product-card{flex:0 0 min(14rem,85%);margin:0;scroll-snap-align:start;align-content:start;min-width:0}
-.products-row>.product-card img{height:8rem;object-fit:contain}
+
+.products-section{margin:1.2rem 0;min-width:0;max-width:100%}
+.products-section.align-center{text-align:center}
+.products-section.align-left{text-align:left}
+.products-section.align-right{text-align:right}
+.products-row{display:flex;gap:.8rem;overflow-x:auto;max-width:100%;padding:.4rem .2rem .9rem;scroll-snap-type:x proximity;overscroll-behavior-x:contain;scrollbar-color:var(--primary) var(--surface2)}
+.products-section.align-center .products-row{justify-content:safe center}
+.products-section.align-left .products-row{justify-content:flex-start}
+.products-section.align-right .products-row{justify-content:flex-end}
+.products-row>.product-card{flex:0 0 min(16rem,85%);margin:0;scroll-snap-align:start;align-content:start;min-width:0;text-align:left}
+.products-row>.product-card img{height:8.5rem;object-fit:contain}
 .products-row>.product-card h3{font-size:1.05rem}
 .products-row>.product-card .btn{width:100%;padding:.55rem .7rem;min-width:0}
 .products-row>.product-card .row{display:grid;gap:.5rem}
 .products-row>.product-card .youtube-block{margin:.2rem 0}
+.product-card .btn,.product-card a.btn,.acs-rich .product-card a.btn,.acs-rich a.btn.product-action{color:#ffffff!important;text-decoration:none!important;background:#1e5c8a linear-gradient(180deg,#2a77b0,#174b70)!important;border:1.5px solid #103652!important;font-weight:700!important;box-shadow:0 3px 8px rgba(0,0,0,.22)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
+.product-card .btn:hover,.product-card a.btn:hover,.acs-rich .product-card a.btn:hover,.acs-rich a.btn.product-action:hover{background:#256c9e linear-gradient(180deg,#3287c4,#1b567f)!important;color:#ffffff!important;box-shadow:0 4px 12px rgba(0,0,0,.3)!important}
+.product-card .btn.alt,.product-card a.btn.alt,.acs-rich .product-card a.btn.alt,.acs-rich a.btn.alt.product-video-action{color:#164363!important;background:#ffffff linear-gradient(180deg,#ffffff,#f2f7fa)!important;border:2px solid #236594!important;text-decoration:none!important;font-weight:700!important;box-shadow:0 2px 6px rgba(0,0,0,.1)!important}
+.product-card .btn.alt:hover,.product-card a.btn.alt:hover,.acs-rich .product-card a.btn.alt:hover,.acs-rich a.btn.alt.product-video-action:hover{background:#e8f3f9!important;color:#0e3047!important}
+
+/* Khi có 1 sản phẩm: tự động căn giữa cân đối, mở rộng vừa vặn thay vì bị co dính mép trái */
+.products-section.single-product .products-row{justify-content:safe center;overflow-x:visible}
+.products-section.single-product .products-row>.product-card{flex:0 1 min(26rem,100%);max-width:28rem;margin-inline:auto}
+.products-section.single-product.align-left .products-row{justify-content:flex-start}
+.products-section.single-product.align-left .products-row>.product-card{margin-left:0;margin-right:auto}
+.products-section.single-product.align-right .products-row{justify-content:flex-end}
+.products-section.single-product.align-right .products-row>.product-card{margin-right:0;margin-left:auto}
+
+#nguoithan{scroll-margin-top:5rem}
+@keyframes pulseHighlight{0%{outline:4px solid var(--primary);box-shadow:0 0 0 0 rgba(43,86,117,.5)}50%{outline:4px solid var(--primary);box-shadow:0 0 0 12px rgba(43,86,117,0)}100%{outline:4px solid transparent;box-shadow:none}}
+.pulse-highlight{animation:pulseHighlight 2.4s ease-in-out;border-color:var(--primary)!important}
+
 .media-warning{padding:.7rem;border-radius:.6rem;background:var(--amber-soft);color:var(--ink)}
 .lesson,.lesson>div,.product-card{min-width:0}
 </style>
@@ -893,8 +932,18 @@ function fastHTML(){
 }
 function telHref(p){ return 'tel:'+String(p).replace(/[^0-9+]/g,''); }
 function openSOS(){
-  const rel=S.contacts.length?S.contacts.map((c,i)=>'<a class="callbig alt" href="'+esc(telHref(c.phone))+'"><span class="cn">'+(i+1)+'</span><span>Gọi '+esc(c.name||'người thân')+'<small>'+esc(c.phone)+(c.rel?' · '+esc(c.rel):'')+'</small></span></a>').join('')
-    :'<a class="btn alt block big" href="#cai-dat" data-act="close">'+ic('user')+'Thêm số người thân</a>';
+  const hasContacts=S.contacts&&S.contacts.length>0;
+  let rel='';
+  if(hasContacts){
+    rel=S.contacts.map((c,i)=>'<a class="callbig alt" href="'+esc(telHref(c.phone))+'"><span class="cn">'+(i+1)+'</span><span>Gọi '+esc(c.name||'người thân')+'<small>'+esc(c.phone)+(c.rel?' · '+esc(c.rel):'')+'</small></span></a>').join('')+
+      '<div class="row" style="margin-top:.6rem;gap:.5rem">'+
+        (S.contacts.length<6?'<button class="btn alt" style="flex:1" data-act="sos-cadd">'+ic('plus')+'Thêm người thân</button>':'')+
+        '<button class="btn alt" style="flex:1" data-act="jump-contacts">'+ic('gear')+'Quản lý số</button>'+
+      '</div>';
+  } else {
+    rel='<button class="btn alt block big" data-act="sos-cadd">'+ic('plus')+'Thêm số người thân ngay</button>'+
+      '<button class="btn sub block small" data-act="jump-contacts" style="margin-top:.4rem;text-align:center;background:none;border:none;color:var(--ink2);text-decoration:underline;cursor:pointer">Hoặc chuyển đến mục Người thân trong Cài đặt</button>';
+  }
   openSheet(sheetHead('Cần giúp ngay?')+
    '<div class="sosnum"><a class="callbig" href="tel:115">'+ic('phone')+'<span>Gọi 115<small>Cấp cứu y tế</small></span></a>'+rel+
    '<p class="small muted" style="text-align:center">Nếu nút gọi không mở được, hãy tự bấm số <b>115</b> trên điện thoại.</p></div>'+
@@ -1514,15 +1563,34 @@ function contactsCard(){
    (n?S.contacts.map((c,i)=>contactRow(c,i,n)).join(''):'<p class="muted">Chưa có người thân nào.</p>')+
    (n<6?'<button class="btn big block" data-act="cadd">'+ic('plus')+'Thêm người thân</button>':'<p class="small muted">Đã đủ 6 người.</p>')+'</div>';
 }
-function openContact(id){
+function jumpToContacts(){
+  closeSheet();
+  window._skipScrollTop=true;
+  if(location.hash!=='#cai-dat'){
+    location.hash='#cai-dat';
+  } else {
+    render();
+  }
+  setTimeout(()=>{
+    const target=document.getElementById('nguoithan');
+    if(target){
+      target.scrollIntoView({behavior:'smooth',block:'start'});
+      target.classList.remove('pulse-highlight');
+      void target.offsetWidth;
+      target.classList.add('pulse-highlight');
+      setTimeout(()=>target.classList.remove('pulse-highlight'),2600);
+    }
+  },100);
+}
+function openContact(id,fromSOS=false){
   const c=id&&S.contacts.find(x=>x.id===id);
-  CE=c?{id:c.id,name:c.name,phone:c.phone,rel:c.rel}:{id:null,name:'',phone:'',rel:''};
+  CE=c?{id:c.id,name:c.name,phone:c.phone,rel:c.rel,fromSOS}:{id:null,name:'',phone:'',rel:'',fromSOS};
   openSheet(sheetHead(c?'Sửa người thân':'Thêm người thân')+
    '<div class="field"><label for="ce-name">Tên người thân</label><input class="input" id="ce-name" data-ce="name" value="'+esc(CE.name)+'" autocomplete="off" placeholder="Ví dụ: Con trai Hùng"></div>'+
    '<div class="field"><label for="ce-phone">Số điện thoại</label><input class="input" id="ce-phone" data-ce="phone" value="'+esc(CE.phone)+'" inputmode="tel" autocomplete="off" placeholder="Ví dụ: 0901 234 567"></div>'+
    '<div class="field"><label for="ce-rel">Quan hệ (có thể bỏ trống)</label><input class="input" id="ce-rel" data-ce="rel" value="'+esc(CE.rel)+'" autocomplete="off" placeholder="Ví dụ: Con, cháu, hàng xóm"></div>'+
    '<p id="ce-err" class="small" style="color:var(--bad);min-height:1.2em" role="alert"></p>'+
-   '<div class="row"><button class="btn big" data-act="csave">'+ic('check')+'Lưu</button><button class="btn alt big" data-act="close">Hủy</button></div>','Người thân');
+   '<div class="row"><button class="btn big" data-act="csave">'+ic('check')+'Lưu</button><button class="btn alt big" data-act="'+(fromSOS?'sos-back':'close')+'">Hủy</button></div>','Người thân');
 }
 function saveContact(){
   const name=CE.name.trim(), phone=CE.phone.trim(), digits=phone.replace(/[^0-9]/g,'');
@@ -1530,7 +1598,14 @@ function saveContact(){
   if(digits.length<3){ if(err) err.textContent='Bác nhập số điện thoại giúp (ít nhất 3 chữ số).'; const f=$('#ce-phone'); if(f) f.focus(); return; }
   if(CE.id){ const c=S.contacts.find(x=>x.id===CE.id); if(c){ c.name=name; c.phone=phone; c.rel=CE.rel.trim(); } }
   else S.contacts.push({id:rid(),name:name,phone:phone,rel:CE.rel.trim()});
-  save(); closeSheet(); toast('Đã lưu người thân'); render();
+  save();
+  const wasFromSOS=CE?.fromSOS;
+  closeSheet();
+  toast('Đã lưu người thân');
+  render();
+  if(wasFromSOS){
+    setTimeout(openSOS,120);
+  }
 }
 function moveContact(id,d){
   const i=S.contacts.findIndex(x=>x.id===id), j=i+d; if(i<0||j<0||j>=S.contacts.length) return;
@@ -1668,6 +1743,9 @@ document.addEventListener('click',e=>{
   switch(a){
     case 'close': closeSheet(); break;
     case 'sos': openSOS(); break;
+    case 'sos-cadd': openContact(null, true); break;
+    case 'sos-back': closeSheet(); openSOS(); break;
+    case 'jump-contacts': jumpToContacts(); break;
     case 'stroke': openStroke(); break;
     case 'speak': speak($('#sheet')?UI.sheetText:UI.infoText); break;
     case 'noteoff': S.noteOff=true; save(); render(); break;
@@ -1744,7 +1822,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{ if(e.target&&e.target.id==='impfile') readImportFile(e.target.files&&e.target.files[0]); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('#sheet')) closeSheet(); });
-window.addEventListener('hashchange',()=>{ stopSpeak(); UI.delId=null; render(); window.scrollTo(0,0); });
+window.addEventListener('hashchange',()=>{ stopSpeak(); UI.delId=null; render(); if(!window._skipScrollTop) window.scrollTo(0,0); window._skipScrollTop=false; });
 document.addEventListener('visibilitychange',()=>{ tick(); applyWake(); });
 
 /* Trusted administrator code from Settings. Article text remains escaped. */
@@ -1814,7 +1892,7 @@ function productHTML(id){
  const videoLabel=String(p.video_button_label||'').trim()||'Xem video';
  const videoClass=String(p.video_button_class||'').trim();
  const price=Number(p.price);let priceText='Liên hệ để biết giá';if(Number.isFinite(price)&&p.price!=='')try{priceText=new Intl.NumberFormat('vi-VN',{style:'currency',currency:p.currency||'VND'}).format(price);}catch(_){priceText=price.toLocaleString('vi-VN')+' '+(p.currency||'VND');}
- return '<aside class="product-card" aria-label="Sản phẩm được giới thiệu">'+imageHTML(p.image_url,p.name,'product-image')+'<span class="small muted">Sản phẩm được giới thiệu</span><h3>'+esc(p.name)+'</h3><div class="product-price">'+esc(priceText)+'</div><div>'+ACSRich.render(p.description,{youtubeHTML:id=>youtubeHTML(id)})+'</div><div class="row">'+(buy?'<a class="btn product-action'+(buttonClass?' '+esc(buttonClass):'')+'" data-product-id="'+esc(p.id)+'" target="_blank" rel="noopener noreferrer" href="'+esc(buy)+'">'+esc(buttonLabel)+'</a>':'')+(video?'<a class="btn alt product-video-action'+(videoClass?' '+esc(videoClass):'')+'" target="_blank" rel="noopener noreferrer" href="'+esc(video)+'">'+esc(videoLabel)+'</a>':'')+'</div>'+(youtubeID(video)?youtubeHTML(video,'Video '+p.name):'')+'</aside>';
+ return '<aside class="product-card" aria-label="Sản phẩm được giới thiệu">'+imageHTML(p.image_url,p.name,'product-image')+'<span class="small muted">Sản phẩm được giới thiệu</span><h3>'+esc(p.name)+'</h3><div class="product-price">'+esc(priceText)+'</div><div>'+ACSRich.render(p.description,{youtubeHTML:(id,node)=>youtubeHTML(id,'',node?.getAttribute?.('align'))})+'</div><div class="row">'+(buy?'<a class="btn product-action'+(buttonClass?' '+esc(buttonClass):'')+'" data-product-id="'+esc(p.id)+'" target="_blank" rel="noopener noreferrer" href="'+esc(buy)+'">'+esc(buttonLabel)+'</a>':'')+(video?'<a class="btn alt product-video-action'+(videoClass?' '+esc(videoClass):'')+'" target="_blank" rel="noopener noreferrer" href="'+esc(video)+'">'+esc(videoLabel)+'</a>':'')+'</div>'+(youtubeID(video)?youtubeHTML(video,'Video '+p.name,'center'):'')+'</aside>';
 }
 function youtubeID(value){
  const input=String(value||'').trim();
@@ -1831,18 +1909,22 @@ function youtubeID(value){
   return /^[A-Za-z0-9_-]{11}$/.test(id)?id:'';
  }catch(_){return '';}
 }
-function youtubeHTML(value,title){
+function youtubeHTML(value,title,align='center'){
  const id=youtubeID(value);
  if(!id)return '<p class="media-warning" role="note">Link YouTube chưa đúng. Dùng link watch, youtu.be, Shorts hoặc mã video.</p>';
+ const effAlign=['left','center','right'].includes(align)?align:'center';
  const src='https://www.youtube-nocookie.com/embed/'+id+'?playsinline=1';
- return '<figure class="youtube-block"><div class="youtube-player"><iframe src="'+src+'" title="'+esc(title||'Video YouTube trong bài viết')+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe></div><figcaption class="small muted">'+esc(title||'Video YouTube')+' · <a href="https://www.youtube.com/watch?v='+id+'" target="_blank" rel="noopener noreferrer">Mở trên YouTube</a></figcaption></figure>';
+ return '<figure class="youtube-block align-'+effAlign+'"><div class="youtube-player"><iframe src="'+src+'" title="'+esc(title||'Video YouTube trong bài viết')+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe></div><figcaption class="small muted">'+esc(title||'Video YouTube')+' · <a href="https://www.youtube.com/watch?v='+id+'" target="_blank" rel="noopener noreferrer">Mở trên YouTube</a></figcaption></figure>';
 }
-function productsRowHTML(value){
+function productsRowHTML(value,align){
  const ids=Array.from(new Set(String(value||'').split(',').map(x=>x.trim()).filter(Boolean)));
  if(!ids.length)return '<p class="media-warning">Chưa có mã sản phẩm trong hàng.</p>';
- return '<section class="products-section" aria-label="Các sản phẩm được giới thiệu"><p class="small muted">'+(ids.length>1?'Nhiều sản phẩm · vuốt hoặc cuộn ngang để xem thêm':'Sản phẩm được giới thiệu')+'</p><div class="products-row" role="region" aria-label="Hàng sản phẩm, cuộn ngang để xem thêm" tabindex="0">'+ids.map(productHTML).join('')+'</div></section>';
+ const isSingle=ids.length===1;
+ const effAlign=['left','center','right'].includes(align)?align:(isSingle?'center':(align||'center'));
+ const cls=['products-section','align-'+effAlign,isSingle?'single-product':''].filter(Boolean).join(' ');
+ return '<section class="'+cls+'" aria-label="Các sản phẩm được giới thiệu"><p class="small muted">'+(ids.length>1?'Nhiều sản phẩm · vuốt hoặc cuộn ngang để xem thêm':'Sản phẩm được giới thiệu')+'</p><div class="products-row" role="region" aria-label="Hàng sản phẩm, cuộn ngang để xem thêm" tabindex="0">'+ids.map(productHTML).join('')+'</div></section>';
 }
-function inlineProducts(text){return ACSRich.render(text,{productsHTML:ids=>productsRowHTML(ids.join(',')),youtubeHTML:id=>youtubeHTML(id)});}
+function inlineProducts(text){return ACSRich.render(text,{productsHTML:(ids,node)=>productsRowHTML(ids.join(','),node?.getAttribute?.('align')),youtubeHTML:(id,node)=>youtubeHTML(id,'Video YouTube',node?.getAttribute?.('align'))});}
 
 const originalTopicSVG=Object.fromEntries(TOPICS.map(t=>[t.id,t.svg]));
 function published(r){return r.published===true||String(r.published).toLowerCase()==='true';}
