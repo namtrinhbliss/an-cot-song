@@ -1132,7 +1132,10 @@ function askNotif(){
 }
 function afterNotif(r){ toast(r==='granted'?'Đã bật thông báo trên máy':'Chưa được cho phép thông báo'); render(); }
 function sysNotify(title,body,tag){
-  try{ if(notifState()==='granted'){ const n=new Notification(title,{body:body,tag:tag,requireInteraction:true}); n.onclick=function(){ try{window.focus();}catch(e){} n.close(); }; } }catch(e){}
+  try{
+    if(window.showLocalNotification){ window.showLocalNotification(title,body,tag); return; }
+    if(notifState()==='granted'){ const n=new Notification(title,{body:body,tag:tag,requireInteraction:true}); n.onclick=function(){ try{window.focus();}catch(e){} n.close(); }; }
+  }catch(e){}
 }
 let AC=null;
 function unlockAudio(){ try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended') AC.resume(); }catch(e){} }
