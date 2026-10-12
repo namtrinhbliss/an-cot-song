@@ -250,11 +250,19 @@
       '</div>' +
     '</div>' +
     '<div class="card stack" style="margin-top:1rem">' +
-      '<h2>Thông báo màn hình khi mở máy</h2>' +
-      '<p class="push-status" role="status" style="font-weight:600;color:var(--primary-deep,#24516c)">' + getStatusText() + '</p>' +
+      '<div class="sec-h"><h2>📲 Cách 2: Cài ứng dụng ra Màn hình chính (Chạm mở tức thì)</h2></div>' +
+      '<p>Biến trang web thành ứng dụng độc lập trên điện thoại. Khi có thông báo, chỉ cần <b>chạm 1 lần vào biểu ngữ là ứng dụng tự động mở toàn màn hình</b> mà không cần mở trình duyệt!</p>' +
+      '<div style="background:var(--primary-soft,#dde9f1);padding:.85rem 1rem;border-radius:.8rem;line-height:1.6;font-size:.88rem;color:var(--primary-deep,#1d3f58)">' +
+        '<b>📱 3 bước cài đặt cực nhanh trên iPhone:</b><br>' +
+        '1️⃣ Ở thanh dưới cùng Safari, bấm nút <b>Chia sẻ</b> (biểu tượng hình ô vuông có mũi tên hướng lên ⬆️).<br>' +
+        '2️⃣ Cuộn xuống chọn <b>"Thêm vào MH chính" (Add to Home Screen)</b> → bấm <b>Thêm</b>.<br>' +
+        '3️⃣ Ra màn hình chính của iPhone, mở biểu tượng <b>"An Cột Sống"</b> vừa tạo → vào lại mục Cài đặt này và bấm nút <b>"Bật thông báo trên máy"</b> bên dưới (chọn Cho phép).<br>' +
+        '<small><i>*Sau khi bật, bấm nút <b>"Gửi thông báo thử"</b> và chạm vào thông báo để trải nghiệm mở app tức thì!</i></small>' +
+      '</div>' +
+      '<p class="push-status" role="status" style="font-weight:600;color:var(--primary-deep,#24516c);margin-top:.4rem">' + getStatusText() + '</p>' +
       '<div class="row" style="flex-wrap:wrap;gap:.6rem">' +
-        '<button class="btn" data-push="enable">Bật thông báo trên máy</button>' +
-        '<button class="btn alt" data-push="test">Gửi thông báo thử</button>' +
+        '<button class="btn" data-push="enable">🔔 Bật thông báo trên máy</button>' +
+        '<button class="btn alt" data-push="test">🧪 Gửi thông báo thử</button>' +
       '</div>' +
     '</div>';
   };
