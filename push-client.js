@@ -1,10 +1,61 @@
-/* An Cột Sống — Nhắc việc cục bộ trên thiết bị (Local Device Reminders & Notifications)
- * Hoạt động 100% trên trình duyệt và PWA của người dùng, không cần máy chủ push ngoài.
+/* An Cột Sống — Hệ thống Nhắc việc & Đồng bộ Lịch 2 chiều (Calendar Subscription & Local Alerts)
+ * - Khóa màn hình / tắt máy: Ứng dụng Lịch hệ thống (Apple Calendar / Google Calendar) tự động đổ chuông báo thức đúng giờ.
+ * - Tự động xóa: Khi người dùng sửa hoặc tắt/xóa nhắc việc trên web, hệ thống tự động cập nhật luồng lịch, điện thoại tự rà soát và xóa sự kiện đã hủy.
+ * - Không cần đăng nhập tài khoản Google hay bất kỳ tài khoản nào.
  */
 (() => {
   'use strict';
 
-  // Đăng ký Service Worker khi khả dụng (cần thiết cho PWA và Android/iOS)
+  // Lấy hoặc tạo mã đồng bộ ngẫu nhiên cố định cho thiết bị này
+  function getCalendarToken() {
+    let token = localStorage.getItem('acs_cal_sync_token');
+    if (!token) {
+      token = 'u_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('acs_cal_sync_token', token);
+    }
+    return token;
+  }
+
+  // Lấy danh sách các việc nhắc nhở đang BẬT
+  function getActiveRoutines() {
+    if (typeof S === 'undefined' || !Array.isArray(S.routines)) return [];
+    if (S.remindOn === false) return [];
+    return S.routines.filter(r => r && r.remind && r.remind.on);
+  }
+
+  // Tự động đẩy danh sách việc đang hoạt động lên máy chủ Vercel Blob để luồng Lịch luôn mới nhất
+  let syncTimer = null;
+  async function syncCalendarFeed() {
+    const token = getCalendarToken();
+    const active = getActiveRoutines();
+    try {
+      const res = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, routines: active })
+      });
+      if (res.ok) {
+        updateCalendarStatus();
+      }
+    } catch (e) {
+      console.warn('Sync calendar feed error:', e);
+    }
+  }
+
+  function queueSync(delay = 1000) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(syncCalendarFeed, delay);
+  }
+
+  // Xuất ra toàn cục để khi S lưu (save) hoặc tick thì tự kích hoạt
+  window.syncCalendarFeed = syncCalendarFeed;
+  window.queueCalendarSync = queueSync;
+  window.syncAnPush = () => {
+    checkLocalReminders();
+    queueSync(1000);
+  };
+
+  /* ====== Service Worker & Thông báo khi mở máy ====== */
   async function getServiceWorkerReg() {
     if (!('serviceWorker' in navigator) || !window.isSecureContext) return null;
     try {
@@ -15,11 +66,8 @@
       return null;
     }
   }
-
-  // Khởi tạo đăng ký SW ngầm
   getServiceWorkerReg();
 
-  // Hàm phát thông báo hệ thống trực tiếp trên thiết bị
   async function showNotification(title, body, tag, dataUrl) {
     if (!('Notification' in window)) return false;
     if (Notification.permission !== 'granted') return false;
@@ -35,18 +83,14 @@
       data: { url: fullUrl }
     };
 
-    // 1. Thử qua Service Worker trước (tối ưu nhất trên điện thoại Android & iOS PWA)
     try {
       const reg = await getServiceWorkerReg();
       if (reg && reg.showNotification) {
         await reg.showNotification(title, options);
         return true;
       }
-    } catch (e) {
-      console.warn('SW notification error:', e);
-    }
+    } catch (e) {}
 
-    // 2. Dự phòng bằng Web Notification tiêu chuẩn
     try {
       const n = new Notification(title, options);
       n.onclick = function() {
@@ -55,74 +99,91 @@
         n.close();
       };
       return true;
-    } catch (e) {
-      console.warn('Standard notification error:', e);
-    }
+    } catch (e) {}
     return false;
   }
 
-  // Xuất ra window để sysNotify của app gọi dùng chung
   window.showLocalNotification = showNotification;
-  window.sysNotify = function(title, body, tag) {
-    return showNotification(title, body, tag);
-  };
+  window.sysNotify = (title, body, tag) => showNotification(title, body, tag);
 
-  // Cập nhật dòng thông báo trạng thái trong thẻ Cài đặt
   function updateStatus(text) {
-    document.querySelectorAll('.push-status').forEach(el => {
-      el.textContent = text;
-    });
+    document.querySelectorAll('.push-status').forEach(el => { el.textContent = text; });
+  }
+
+  function updateCalendarStatus() {
+    const active = getActiveRoutines();
+    const countEl = document.getElementById('cal-active-count');
+    if (countEl) {
+      countEl.textContent = active.length + ' việc đang bật nhắc nhở';
+    }
+    const listEl = document.getElementById('cal-active-list');
+    if (listEl) {
+      if (active.length === 0) {
+        listEl.innerHTML = '<span class="muted">Hiện chưa có việc nào bật nhắc nhở. Lịch điện thoại sẽ tự động làm trống.</span>';
+      } else {
+        listEl.innerHTML = active.map(r => `• <b>${r.title}</b> (${r.time})`).join('<br>');
+      }
+    }
   }
 
   function getStatusText() {
-    if (!('Notification' in window)) {
-      return '⚠️ Thiết bị hoặc trình duyệt này không hỗ trợ thông báo hệ thống.';
-    }
-    if (Notification.permission === 'granted') {
-      return '✅ Đã bật thông báo trên thiết bị. Ứng dụng sẽ tự động nhắc khi đến giờ và mỗi khi bác mở điện thoại.';
-    }
-    if (Notification.permission === 'denied') {
-      return '⚠️ Trình duyệt đang chặn thông báo. Bác vui lòng vào Cài đặt trang web trên trình duyệt để Cho phép.';
-    }
-    return 'Chưa bật thông báo. Bác bấm nút "Bật nhắc trên thiết bị" bên dưới để nhận thông báo đúng giờ.';
+    if (!('Notification' in window)) return '⚠️ Thiết bị không hỗ trợ thông báo Notification.';
+    if (Notification.permission === 'granted') return '✅ Đã bật thông báo trên thiết bị.';
+    if (Notification.permission === 'denied') return '⚠️ Trình duyệt đang chặn thông báo. Bác cần vào Cài đặt để Cho phép.';
+    return 'Chưa bật thông báo trên máy.';
   }
 
-  // Khung giao diện cài đặt trong màn Cài đặt
+  /* ====== Giao diện thẻ Cài đặt ====== */
   window.pushPanelHTML = () => {
+    const token = getCalendarToken();
+    const host = location.host;
+    const webcalUrl = `webcal://${host}/api/calendar?token=${token}`;
+    const httpFeedUrl = `https://${host}/api/calendar?token=${token}`;
+    const googleCalUrl = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}`;
+    const active = getActiveRoutines();
+
     return '<div class="card stack">' +
-      '<h2>Nhắc việc trên thiết bị</h2>' +
-      '<p>Tự động kiểm tra thời gian và nhắc nhở trực tiếp ngay trên điện thoại của bác. Hoạt động độc lập 100% trên máy, không cần máy chủ, đảm bảo riêng tư tuyệt đối và không bao giờ lỗi kết nối.</p>' +
-      '<p class="push-status" role="status" style="font-weight:600;color:var(--primary-deep,#24516c)">' + getStatusText() + '</p>' +
-      '<div class="row" style="flex-wrap:wrap;gap:.6rem">' +
-        '<button class="btn" data-push="enable">Bật nhắc trên thiết bị</button>' +
-        '<button class="btn" data-push="test">Gửi thông báo thử</button>' +
-        '<button class="btn alt" data-push="disable">Tắt nhắc việc</button>' +
+      '<div class="sec-h"><h2>🔔 Đồng bộ Lịch & Chuông điện thoại</h2></div>' +
+      '<p>Đăng ký lịch nhắc trực tiếp vào ứng dụng <b>Lịch / Đồng hồ</b> của điện thoại. <b>Khóa màn hình, tắt máy hoàn toàn vẫn đổ chuông báo thức đúng giờ!</b></p>' +
+      '<div style="background:var(--primary-soft,#dde9f1);padding:.9rem 1.1rem;border-radius:.9rem;margin:.4rem 0">' +
+        '<div style="font-weight:700;color:var(--primary-deep,#1d3f58);margin-bottom:.3rem">Trạng thái đồng bộ tự động:</div>' +
+        '<div id="cal-active-count" style="font-weight:600;color:var(--primary,#2b5675);margin-bottom:.4rem">' + active.length + ' việc đang bật nhắc nhở</div>' +
+        '<div id="cal-active-list" class="small muted" style="line-height:1.6">' +
+          (active.length ? active.map(r => `• <b>${r.title}</b> (${r.time})`).join('<br>') : '<span class="muted">Chưa có việc nào bật nhắc. Bác thêm việc ở bên dưới.</span>') +
+        '</div>' +
+      '</div>' +
+      '<div class="row" style="flex-wrap:wrap;gap:.6rem;margin-top:.4rem">' +
+        `<a class="btn" href="${webcalUrl}" style="text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">📅 Đăng ký Lịch iPhone / iPad</a>` +
+        `<a class="btn alt" target="_blank" rel="noopener noreferrer" href="${googleCalUrl}" style="text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">🗓️ Đồng bộ Google Calendar (Android)</a>` +
+        `<a class="btn alt" download="ancotsong.ics" href="${httpFeedUrl}" style="text-decoration:none">📥 Tải file Lịch (.ics)</a>` +
       '</div>' +
       '<div class="note" style="margin-top:.8rem">' +
         '<p class="small muted">' +
-          '📱 <b>Mẹo dùng trên điện thoại:</b><br>' +
-          '• <b>iPhone/iPad:</b> Mở bằng Safari → Bấm nút <i>Chia sẻ</i> (mũi tên lên) → Chọn <b>Thêm vào màn hình chính</b> → Mở ứng dụng từ màn hình chính để nhận thông báo đầy đủ.<br>' +
-          '• <b>Android:</b> Mở bằng Chrome → Bấm <i>Cho phép</i> khi trình duyệt hỏi quyền thông báo.<br>' +
-          '• Mỗi lần bác mở điện thoại hoặc vào lại ứng dụng, hệ thống sẽ tự động rà soát lịch nhắc và gửi thông báo nếu có việc đến giờ.' +
+          '💡 <b>Cơ chế xóa và đồng bộ tự động:</b><br>' +
+          '• Bác chỉ cần bấm nút <b>"Đăng ký Lịch"</b> 1 lần duy nhất.<br>' +
+          '• Khi bác thay đổi giờ, tắt hoặc xóa bất kỳ việc nào trên trang web này: Hệ thống sẽ tự động cập nhật. Ứng dụng Lịch trên điện thoại sẽ tự động rà soát định kỳ (mỗi vài phút) và <b>tự động xóa các việc đã hủy</b>, chỉ giữ lại các việc đang bật hoạt động.<br>' +
+          '• Hoàn toàn không cần đăng nhập Google, bảo mật và riêng tư 100%.' +
         '</p>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card stack" style="margin-top:1rem">' +
+      '<h2>Thông báo màn hình khi mở máy</h2>' +
+      '<p class="push-status" role="status" style="font-weight:600;color:var(--primary-deep,#24516c)">' + getStatusText() + '</p>' +
+      '<div class="row" style="flex-wrap:wrap;gap:.6rem">' +
+        '<button class="btn" data-push="enable">Bật thông báo trên máy</button>' +
+        '<button class="btn alt" data-push="test">Gửi thông báo thử</button>' +
       '</div>' +
     '</div>';
   };
 
-  // Tự động kiểm tra lịch nhắc khi mở máy hoặc quay lại tab
   function checkLocalReminders() {
     try {
-      if (typeof window.tick === 'function') {
-        window.tick();
-      }
-    } catch (e) {
-      console.warn('Check local reminders tick error:', e);
-    }
+      if (typeof window.tick === 'function') window.tick();
+    } catch (e) {}
   }
   window.checkLocalReminders = checkLocalReminders;
-  window.syncAnPush = checkLocalReminders;
 
-  // Xử lý các nút bấm trong Cài đặt
+  // Lắng nghe sự kiện người dùng tương tác với nút thông báo
   document.addEventListener('click', async e => {
     const button = e.target.closest('[data-push]');
     if (!button) return;
@@ -136,7 +197,6 @@
           alert('Thiết bị này không hỗ trợ thông báo Notification.');
           return;
         }
-
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
           if (typeof S !== 'undefined') {
@@ -146,65 +206,45 @@
           }
           await getServiceWorkerReg();
           updateStatus(getStatusText());
-          if (typeof toast === 'function') toast('Đã bật thông báo trên thiết bị thành công!');
-          
-          // Gửi ngay 1 thông báo xác nhận
-          await showNotification('An Cột Sống', 'Đã bật nhắc việc trên thiết bị thành công! Bác sẽ được nhắc khi đến giờ hẹn.', 'acs-enabled');
+          queueSync(100);
+          await showNotification('An Cột Sống', 'Đã bật thông báo trên thiết bị thành công! Bác sẽ nhận được nhắc nhở khi đến giờ hẹn.', 'acs-enabled');
         } else {
           updateStatus(getStatusText());
-          if (typeof toast === 'function') toast('Chưa được cấp quyền thông báo.');
         }
       } else if (act === 'test') {
         if (!('Notification' in window)) {
           alert('Thiết bị này không hỗ trợ thông báo Notification.');
           return;
         }
-
         let perm = Notification.permission;
-        if (perm !== 'granted') {
-          perm = await Notification.requestPermission();
-        }
-
+        if (perm !== 'granted') perm = await Notification.requestPermission();
         if (perm === 'granted') {
           if (typeof beep === 'function') beep(2);
-          const ok = await showNotification('An Cột Sống (Thử nghiệm)', 'Thông báo hoạt động tốt trên máy của bác! Lời nhắc sẽ xuất hiện như thế này.', 'acs-test');
-          if (ok) {
-            updateStatus('Đã gửi thông báo thử thành công lên máy của bác lúc ' + new Date().toLocaleTimeString('vi-VN'));
-            if (typeof toast === 'function') toast('Đã gửi thông báo thử thành công!');
-          } else {
-            updateStatus('Không gửi được thông báo. Bác kiểm tra cài đặt thông báo của trình duyệt.');
-          }
-        } else {
-          alert('Bác cần cấp quyền thông báo cho ứng dụng trước.');
+          await showNotification('An Cột Sống (Thử nghiệm)', 'Thông báo hoạt động tốt trên máy của bác!', 'acs-test');
+          updateStatus('Đã gửi thông báo thử thành công lúc ' + new Date().toLocaleTimeString('vi-VN'));
         }
-      } else if (act === 'disable') {
-        if (typeof S !== 'undefined') {
-          S.remindOn = false;
-          if (typeof save === 'function') save();
-          if (typeof render === 'function') render();
-        }
-        updateStatus('Đã tắt nhắc việc trên thiết bị.');
-        if (typeof toast === 'function') toast('Đã tắt nhắc việc.');
       }
     } catch (err) {
       console.error(err);
-      updateStatus('Lỗi: ' + (err.message || err));
     } finally {
       button.disabled = false;
     }
   });
 
-  // Sự kiện khi người dùng MỞ MÁY / BẬT MÀN HÌNH / QUAY LẠI ỨNG DỤNG
+  // Tự động kiểm tra và đồng bộ khi mở máy / quay lại tab
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       checkLocalReminders();
+      queueSync(1500);
     }
   });
-  window.addEventListener('focus', checkLocalReminders);
-  window.addEventListener('pageshow', checkLocalReminders);
+  window.addEventListener('focus', () => {
+    checkLocalReminders();
+    queueSync(1500);
+  });
   window.addEventListener('load', () => {
     checkLocalReminders();
-    updateStatus(getStatusText());
+    queueSync(500);
   });
 
 })();

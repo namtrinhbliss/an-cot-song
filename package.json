@@ -1,0 +1,24 @@
+{
+  "name": "an-cot-song-google-sheet",
+  "version": "1.0.0",
+  "description": "Ứng dụng web Progressive Web App (PWA) giúp tra cứu, theo dõi và chăm sóc cột sống, huyết áp, cơ xương khớp với mô hình 3D tương tác và kết nối quản trị Google Sheets.",
+  "main": "push-client.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/namtrinhbliss/an-cot-song.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/namtrinhbliss/an-cot-song/issues"
+  },
+  "homepage": "https://github.com/namtrinhbliss/an-cot-song#readme",
+  "dependencies": {
+    "@vercel/blob": "^2.8.1"
+  }
+}
