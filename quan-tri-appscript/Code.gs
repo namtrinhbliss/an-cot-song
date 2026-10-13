@@ -512,7 +512,7 @@ var ACSAuthCrypto = (() => {
 const ADMIN_SCHEMA = {
  Settings:['key','value'],Articles:['id','title','icon','minutes','cover_url','cover_alt','urgent','published','sort_order'],
  ArticleBlocks:['id','article_id','heading','type','content','sort_order'],
- Products:['id','name','price','currency','image_url','video_url','buy_url','description','published','sort_order','button_label','button_class','video_button_label','video_button_class'],
+ Products:['id','name','price','currency','image_url','video_url','buy_url','description','published','sort_order','button_label','button_class','video_button_label','video_button_class','display_layout','badge_label','gallery_urls'],
  Topics:['id','name','icon','data_json','sort_order'],Exercises:['id','name','fig','reps','hold','sub','steps','tip','published','sort_order'],Tips:['id','content','sort_order'],Texts:['id','original','value']
 };
 function doGet(){
@@ -524,7 +524,7 @@ function adminRead_(ss){
   const sh=ss.getSheetByName(name);if(!sh)throw Error('Thiếu bảng '+name);
   const values=sh.getDataRange().getValues(),headers=values.shift().map(v=>String(v).trim());
   if(new Set(headers).size!==headers.length)throw Error('Trùng tiêu đề cột trong '+name);
-  ADMIN_SCHEMA[name].filter(k=>!['button_label','button_class','video_button_label','video_button_class'].includes(k)).forEach(k=>{if(!headers.includes(k))throw Error('Thiếu cột '+name+'.'+k);});
+  ADMIN_SCHEMA[name].filter(k=>!['button_label','button_class','video_button_label','video_button_class','display_layout','badge_label','gallery_urls'].includes(k)).forEach(k=>{if(!headers.includes(k))throw Error('Thiếu cột '+name+'.'+k);});
   const key=name==='Settings'?'key':'id',seen=new Set();
   tables[name]=values.filter(r=>headers.some((h,i)=>!['published','urgent'].includes(h)&&String(r[i]).trim()!=='')).map((r)=>{
    const o={};headers.forEach((k,i)=>{o[k]=r[i] instanceof Date?r[i].toISOString():r[i];});o[key]=String(o[key]||'').trim();
@@ -542,7 +542,10 @@ function adminValidate_(name,row){
   if(typeof row[k]==='string'&&row[k].length>45000)throw Error('Nội dung '+k+' quá dài; chia thành nhiều đoạn.');
   if(['published','urgent'].includes(k))row[k]=row[k]===true||String(row[k]).toLowerCase()==='true';
   if(['minutes','sort_order','price','reps','hold'].includes(k)&&row[k]!==''){const n=Number(row[k]);if(!Number.isFinite(n)||n<0)throw Error('Giá trị số không hợp lệ: '+k);row[k]=n;}
-  if(k.endsWith('_url')&&row[k]&&!/^https:\/\/[^\s<>]+$/i.test(row[k]))throw Error('Link '+k+' phải bắt đầu bằng https://.');
+  if((k==='image_url'||k==='gallery_urls')&&row[k]){
+   const urls=String(row[k]).split(/[\r\n,]+/).map(s=>s.trim()).filter(Boolean);
+   if(urls.some(u=>!/^https:\/\/[^\s<>]+$/i.test(u)))throw Error('Mỗi link ảnh trong '+k+' phải bắt đầu bằng https://.');
+  }else if(k.endsWith('_url')&&row[k]&&!/^https:\/\/[^\s<>]+$/i.test(row[k]))throw Error('Link '+k+' phải bắt đầu bằng https://.');
  });
  if(name==='Articles'&&!String(row.title||'').trim())throw Error('Nhập tiêu đề bài viết.');
  if(name==='Products'&&!String(row.name||'').trim())throw Error('Nhập tên sản phẩm.');
