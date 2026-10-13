@@ -299,7 +299,7 @@ function productHTML(id,override,layoutMode){
   descHTML='<div class="product-desc-collapsible is-collapsed" id="desc-'+pid+'">'
    +'<div class="product-desc-preview" style="display:block">'+previewHTML+'</div>'
    +'<div class="product-desc-full" style="display:none">'+rawDescHTML+'</div>'
-   +'<button type="button" class="product-desc-toggle-btn" style="background:#edf5fa;border:1.5px solid #bdd5e3;color:#184a6e;font-weight:700;font-size:12.5px;cursor:pointer;padding:4px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;margin-top:6px" onclick="const b=this.closest(\'.product-desc-collapsible\');const c=b.classList.toggle(\'is-collapsed\');const p=b.querySelector(\'.product-desc-preview\');const f=b.querySelector(\'.product-desc-full\');p.style.display=c?\'block\':\'none\';f.style.display=c?\'none\':\'block\';this.textContent=c?\'Xem thêm (xem đầy đủ)'+(remainingWords>0?' · '+remainingWords+' từ còn lại':'')+' ▼\':\'Thu gọn mô tả ▲\'">Xem thêm (xem đầy đủ)'+(remainingWords>0?' · '+remainingWords+' từ còn lại':'')+' ▼</button>'
+    +'<button type="button" class="product-desc-toggle-btn" style="background:#edf5fa;border:1.5px solid #bdd5e3;color:#184a6e;font-weight:700;font-size:12.5px;cursor:pointer;padding:4px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;margin-top:6px" onclick="const b=this.closest(\'.product-desc-collapsible\');const c=b.classList.toggle(\'is-collapsed\');const p=b.querySelector(\'.product-desc-preview\');const f=b.querySelector(\'.product-desc-full\');p.style.display=c?\'block\':\'none\';f.style.display=c?\'none\':\'block\';this.textContent=c?\'Xem tiếp >>\':\'Thu gọn mô tả ▲\'">Xem tiếp &gt;&gt;</button>'
    +'</div>';
  }
 
