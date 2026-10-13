@@ -1501,11 +1501,11 @@ function edSave(){
   const i=S.routines.findIndex(x=>x.id===o.id);
   if(i>=0) S.routines[i]=o; else S.routines.push(o);
   const tk=dkey(); Object.keys(S.fired).forEach(k=>{ if(k.indexOf(tk+'|'+o.id+'|')===0) delete S.fired[k]; });
-  save(); closeSheet(); toast('Đã lưu việc'); UI.open[o.id]=true; render(); tick();
+  save(); closeSheet(); toast('Đã lưu việc'); UI.open[o.id]=true; window.ACSTelemetry?.trackSchedule(i>=0?'update':'create',{routine:o}); render(); tick();
 }
 function edDelete(){
-  const id=ED.id; S.routines=S.routines.filter(r=>r.id!==id); Object.keys(S.log).forEach(k=>{ delete S.log[k][id]; });
-  save(); closeSheet(); toast('Đã xóa việc'); render(); tick();
+  const id=ED.id; const delTitle=ED.title||('Lịch #'+id); S.routines=S.routines.filter(r=>r.id!==id); Object.keys(S.log).forEach(k=>{ delete S.log[k][id]; });
+  save(); closeSheet(); toast('Đã xóa việc'); window.ACSTelemetry?.trackSchedule('delete',{deletedId:id,deletedTitle:delTitle}); render(); tick();
 }
 
 /* ====== Cài đặt ====== */
@@ -2072,6 +2072,61 @@ function inlineProducts(text){return ACSRich.render(text,{productsHTML:(ids,node
 const originalTopicSVG=Object.fromEntries(TOPICS.map(t=>[t.id,t.svg]));
 function published(r){return r.published===true||String(r.published).toLowerCase()==='true';}
 function sorted(rows){return rows.slice().sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));}
+
+let currentTrackingSnippet='';
+function applyTrackingScripts(rawSnippet){
+ const snippet=String(rawSnippet||'').trim();
+ if(snippet===currentTrackingSnippet)return;
+ currentTrackingSnippet=snippet;
+ document.querySelectorAll('.acs-tracking-injected').forEach(el=>el.remove());
+ if(!snippet)return;
+ try{
+  const temp=document.createElement('div');
+  temp.innerHTML=snippet;
+  const scripts=temp.querySelectorAll('script');
+  if(scripts.length>0){
+   scripts.forEach(old=>{
+    const s=document.createElement('script');
+    s.className='acs-tracking-injected';
+    for(let i=0;i<old.attributes.length;i++){
+     s.setAttribute(old.attributes[i].name,old.attributes[i].value);
+    }
+    if(old.textContent)s.textContent=old.textContent;
+    document.head.appendChild(s);
+   });
+  }else if(/^https?:\/\//i.test(snippet)){
+   const s=document.createElement('script');
+   s.className='acs-tracking-injected';
+   s.src=snippet;s.async=true;
+   document.head.appendChild(s);
+  }else{
+   const s=document.createElement('script');
+   s.className='acs-tracking-injected';
+   s.textContent=snippet;
+   document.head.appendChild(s);
+  }
+  temp.querySelectorAll('noscript, img').forEach(node=>{
+   const clone=node.cloneNode(true);
+   clone.classList.add('acs-tracking-injected');
+   document.body.appendChild(clone);
+  });
+ }catch(err){
+  console.error('Tracking script error:',err);
+ }
+}
+
+function updateChatBubbleVisibility(){
+ const bubble=document.getElementById('nt-chat-bubble');
+ const container=document.getElementById('nt-chat-container');
+ if(!bubble)return;
+ const val=String(anatomySettings?.chat_bubble_enabled??'TRUE').trim().toUpperCase();
+ const isVisible=(val!=='FALSE'&&val!=='0'&&val!=='OFF');
+ bubble.style.display=isVisible?'flex':'none';
+ if(!isVisible&&container){
+  container.style.display='none';
+ }
+}
+
 function applyCMS(payload){
  if(!payload||payload.schema!==1||!payload.tables)throw Error('Dữ liệu không đúng cấu trúc');
  const t=payload.tables;
@@ -2092,7 +2147,7 @@ function applyCMS(payload){
  const lessonId=UI.lessonId, sc=$('#sheet'), top=sc?sc.scrollTop:0;
  if(!(document.activeElement&&document.activeElement.matches('input,textarea,select')))render();
  if(lessonId){if(LESSONS.some(l=>l.id===lessonId)){openLesson(lessonId);$('#sheet').scrollTop=top;}else{closeSheet();toast('Bài viết đã được gỡ khỏi thư viện.');}}
-  document.title=settings.app_name||'An Cột Sống';translateCMS(document.body);applyCustomCode(settings);checkSystemAnnouncement(settings);
+  document.title=settings.app_name||'An Cột Sống';translateCMS(document.body);applyCustomCode(settings);checkSystemAnnouncement(settings);applyTrackingScripts(settings.tracking_scripts);updateChatBubbleVisibility();
 }
 const cmsOriginal=new WeakMap();
 function translateCMS(root){if(!cmsTexts.size)return;const walk=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=walk.nextNode()){if(n.parentElement.closest('script,style,textarea,input,.toast,.sync-status,.product-card,.lesson,.announcement-popup,.announcement-fs-container,#nt-chat-module'))continue;const original=cmsOriginal.get(n)||n.nodeValue;if(!cmsOriginal.has(n))cmsOriginal.set(n,original);const trim=original.trim(),v=cmsTexts.get(original)??cmsTexts.get(trim);if(v!==undefined&&n.nodeValue!==v)n.nodeValue=v;}}
@@ -2392,6 +2447,7 @@ function closeAnnouncementPopup(isTemporary=false,isTransition=false){
   setupBotsumo();
  }
 
+ updateChatBubbleVisibility();
  const chatContainer=document.getElementById("nt-chat-container");
  const chatHeader=document.getElementById("nt-chat-header");
  const chatBubble=document.getElementById("nt-chat-bubble");

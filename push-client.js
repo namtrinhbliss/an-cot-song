@@ -381,6 +381,165 @@
     }
   });
 
+  /* ================================================================
+   * HỆ THỐNG GHI NHẬN THIẾT BỊ, CÀI ĐẶT APP (PWA) & THỐNG KÊ LỊCH
+   * ================================================================ */
+  const DEVICE_ID_KEY = 'acs_device_id';
+  const INSTALLED_AT_KEY = 'acs_pwa_installed_at';
+  const SESSIONS_KEY = 'acs_session_count';
+  const ACTIVE_SECS_KEY = 'acs_active_seconds';
+
+  function getDeviceId() {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  }
+
+  function detectDeviceInfo() {
+    const ua = navigator.userAgent || '';
+    let os = 'Khác';
+    if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+    else if (/Android/i.test(ua)) os = 'Android';
+    else if (/Windows NT/i.test(ua)) os = 'Windows';
+    else if (/Macintosh|Mac OS X/i.test(ua)) os = 'macOS';
+    else if (/Linux/i.test(ua)) os = 'Linux';
+
+    let type = 'Desktop';
+    if (/Mobi|Android|iPhone|iPod/i.test(ua)) type = 'Mobile';
+    else if (/iPad|Tablet/i.test(ua) || (os === 'iOS' && navigator.maxTouchPoints > 1)) type = 'Tablet';
+
+    let browser = 'Khác';
+    if (/Zalo/i.test(ua)) browser = 'Zalo App';
+    else if (/FBAN|FBAV/i.test(ua)) browser = 'Facebook App';
+    else if (/Edg/i.test(ua)) browser = 'Edge';
+    else if (/Chrome/i.test(ua) && !/Edg/i.test(ua)) browser = 'Chrome';
+    else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+    else if (/Firefox/i.test(ua)) browser = 'Firefox';
+
+    const screenStr = (window.screen && window.screen.width) 
+      ? `${window.screen.width}x${window.screen.height} (${window.devicePixelRatio || 1}x)` 
+      : '';
+
+    return {
+      type,
+      os,
+      browser,
+      screen: screenStr,
+      language: navigator.language || 'vi',
+      userAgent: ua
+    };
+  }
+
+  function isInstalledPWA() {
+    if (window.navigator.standalone === true) return true;
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
+    if (document.referrer && document.referrer.includes('android-app://')) return true;
+    return false;
+  }
+
+  let sessionCount = Number(localStorage.getItem(SESSIONS_KEY) || 0);
+  if (!sessionStorage.getItem('acs_session_pinged')) {
+    sessionCount += 1;
+    localStorage.setItem(SESSIONS_KEY, sessionCount);
+    sessionStorage.setItem('acs_session_pinged', '1');
+  }
+
+  let activeSeconds = Number(localStorage.getItem(ACTIVE_SECS_KEY) || 0);
+  setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      activeSeconds += 15;
+      localStorage.setItem(ACTIVE_SECS_KEY, activeSeconds);
+    }
+  }, 15000);
+
+  const isInstalled = isInstalledPWA();
+  let installedAt = localStorage.getItem(INSTALLED_AT_KEY);
+  if (isInstalled && !installedAt) {
+    installedAt = new Date().toISOString();
+    localStorage.setItem(INSTALLED_AT_KEY, installedAt);
+  }
+
+  async function postTelemetry(payload) {
+    try {
+      const deviceId = getDeviceId();
+      const body = {
+        deviceId,
+        isInstalled: isInstalledPWA(),
+        displayMode: isInstalledPWA() ? 'standalone' : 'browser',
+        installedAt: localStorage.getItem(INSTALLED_AT_KEY) || null,
+        sessionCount: Number(localStorage.getItem(SESSIONS_KEY) || 1),
+        activeSeconds: Number(localStorage.getItem(ACTIVE_SECS_KEY) || 0),
+        deviceInfo: detectDeviceInfo(),
+        ...payload
+      };
+      await fetch('/api/telemetry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } catch (_) {}
+  }
+
+  setTimeout(() => {
+    postTelemetry({ type: 'device_ping' });
+  }, 2000);
+
+  setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      postTelemetry({ type: 'device_ping' });
+    }
+  }, 120000);
+
+  window.addEventListener('appinstalled', () => {
+    const now = new Date().toISOString();
+    localStorage.setItem(INSTALLED_AT_KEY, now);
+    postTelemetry({
+      type: 'app_installed',
+      installedAt: now
+    });
+  });
+
+  document.addEventListener('click', e => {
+    const link = e.target.closest('a[href^="webcal://"], a[href*="calendar.google.com"], a[download="ancotsong.ics"]');
+    if (link) {
+      const channel = link.href.startsWith('webcal:') ? 'Lịch iPhone/iPad (WebCal)' : (link.href.includes('google.com') ? 'Google Calendar' : 'Tải file .ics');
+      postTelemetry({
+        type: 'schedule_action',
+        action: 'sync_mobile',
+        channel: channel,
+        activeCount: getActiveRoutines().length
+      });
+    }
+    const syncBtn = e.target.closest('#cal-sync-now-btn');
+    if (syncBtn) {
+      postTelemetry({
+        type: 'schedule_action',
+        action: 'sync_mobile',
+        channel: 'Nút Đồng bộ ngay',
+        activeCount: getActiveRoutines().length
+      });
+    }
+  });
+
+  window.ACSTelemetry = {
+    getDeviceId,
+    detectDeviceInfo,
+    isInstalledPWA,
+    trackPing: () => postTelemetry({ type: 'device_ping' }),
+    trackInstall: (ts) => postTelemetry({ type: 'app_installed', installedAt: ts }),
+    trackSchedule: (action, data) => {
+      postTelemetry({
+        type: 'schedule_action',
+        action,
+        ...(data || {})
+      });
+    }
+  };
+
   // Tự động kiểm tra và đồng bộ khi mở máy / quay lại tab
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {

@@ -95,9 +95,9 @@ function steps(v){if(String(v||'').startsWith(STEP)){try{const d=JSON.parse(v.sl
 global.ACSRich={PREFIX,STEP,esc,url,video,videoEmbedSrc,clean,editor,encode,render,text,steps,encodeSteps:steps=>STEP+JSON.stringify({v:1,steps})};
 })(window);
 </script><script>'use strict';
-const sections={Announcements:'Gửi thông báo',Articles:'Bài viết',Products:'Sản phẩm',Topics:'Chuyên đề',Exercises:'Bài tập',Tips:'Mẹo hằng ngày',Settings:'Cài đặt website',Texts:'Chữ giao diện'};
+const sections={Analytics:'Thống kê người dùng & Lịch',Announcements:'Gửi thông báo',Articles:'Bài viết',Products:'Sản phẩm',Topics:'Chuyên đề',Exercises:'Bài tập',Tips:'Mẹo hằng ngày',Settings:'Cài đặt website',Texts:'Chữ giao diện'};
 const names={title:'Tiêu đề',name:'Tên',minutes:'Thời gian đọc (phút)',cover_url:'Ảnh bìa',cover_alt:'Mô tả ảnh bìa',urgent:'Nội dung cần chú ý',published:'Hiển thị trên web',price:'Giá',currency:'Tiền tệ',image_url:'Ảnh chính (Link HTTPS)',gallery_urls:'Album ảnh phụ (mỗi link 1 dòng hoặc cách nhau bởi dấu phẩy)',video_url:'Video sản phẩm (Link YouTube, Vimeo, Drive hoặc mã nhúng iframe)',buy_url:'Link tìm hiểu / mua',description:'Mô tả sản phẩm',button_label:'Chữ nút tìm hiểu / mua (mặc định: Tìm hiểu thêm)',button_class:'Class CSS nút mua',video_button_label:'Chữ nút video (mặc định: Xem video)',video_button_class:'Class CSS nút video',display_layout:'Kiểu hiển thị sản phẩm',badge_label:'Dòng chữ nhãn sản phẩm (tùy chọn, để trống nếu không dùng)',reps:'Số lần',hold:'Thời gian giữ (giây)',sub:'Mô tả ngắn',tip:'Lưu ý',content:'Nội dung',original:'Chữ gốc',value:'Nội dung mới',hint:'Hướng dẫn',spots:'Các điểm trên mô hình',x:'Vị trí ngang (%)',y:'Vị trí dọc (%)',what:'Giải thích',feel:'Triệu chứng',do:'Có thể làm',see:'Khi nào cần khám',band:'Nhóm vùng'};
-const settings={app_name:'Tên ứng dụng',tagline:'Khẩu hiệu',disclaimer:'Lời giải thích của ứng dụng',product_intro_label:'Dòng chữ nhãn sản phẩm mặc định (để trống nếu không dùng)',product_desc_word_limit:'Số từ mô tả hiển thị trước khi bấm xem thêm (mặc định: 80)',exercise_safety:'An toàn khi tập',custom_css:'CSS tùy chỉnh',custom_js:'JavaScript tùy chỉnh',custom_js_enabled:'Bật JavaScript tùy chỉnh',model_spine_url:'Link mô hình cột sống',model_neck_url:'Link mô hình cổ vai gáy',model_joint_url:'Link mô hình xương khớp',model_bp_url:'Link mô hình tim',heart_point_1:'Giải thích tâm nhĩ',heart_point_2:'Giải thích tâm thất',heart_point_3:'Giải thích động mạch chủ',heart_point_4:'Giải thích động mạch vành',push_api_url:'Địa chỉ dịch vụ thông báo',announcement_data:'Dữ liệu thông báo hệ thống (JSON)'};
+const settings={app_name:'Tên ứng dụng',tagline:'Khẩu hiệu',disclaimer:'Lời giải thích của ứng dụng',product_intro_label:'Dòng chữ nhãn sản phẩm mặc định (để trống nếu không dùng)',product_desc_word_limit:'Số từ mô tả hiển thị trước khi bấm xem thêm (mặc định: 80)',chat_bubble_enabled:'Bật/Tắt Chat Bubble nổi (TRUE để hiện, FALSE để ẩn)',tracking_scripts:'Mã script theo dõi (Facebook Pixel, Google Analytics, Microsoft Clarity...)',exercise_safety:'An toàn khi tập',custom_css:'CSS tùy chỉnh',custom_js:'JavaScript tùy chỉnh',custom_js_enabled:'Bật JavaScript tùy chỉnh',model_spine_url:'Link mô hình cột sống',model_neck_url:'Link mô hình cổ vai gáy',model_joint_url:'Link mô hình xương khớp',model_bp_url:'Link mô hình tim',heart_point_1:'Giải thích tâm nhĩ',heart_point_2:'Giải thích tâm thất',heart_point_3:'Giải thích động mạch chủ',heart_point_4:'Giải thích động mạch vành',push_api_url:'Địa chỉ dịch vụ thông báo',announcement_data:'Dữ liệu thông báo hệ thống (JSON)'};
 const icons={spine:'Cột sống',neck:'Cổ vai gáy',bone:'Xương',heart:'Tim',pulse:'Mạch',chair:'Tư thế',warn:'Cảnh báo',stretch:'Tập nhẹ'};
 const figures={flex:'Gập cổ',tilt:'Nghiêng cổ',turn:'Quay cổ',roll:'Xoay vai',squeeze:'Ép bả vai',twist:'Xoay người'};
 const el=id=>document.getElementById(id),esc=ACSRich.esc;let state,table='Articles',selected='',draft,dirty=false,busy=false,activeRich=null,selection=null,dragId=null,dragStep=null,editingChip=null;
@@ -112,7 +112,8 @@ function productName(id){return state.tables.Products.find(p=>p.id===id)?.name||
 function field(k,v='',readonly=false){if(k==='id'||k==='sort_order')return '';if(['published','urgent'].includes(k))return '<label class="check"><input data-field="'+k+'" type="checkbox"'+(v===true||String(v).toLowerCase()==='true'?' checked':'')+'>'+esc(names[k])+'</label>';if(k==='icon'||k==='fig'){const opts=k==='icon'?icons:figures;return '<label>'+ (k==='icon'?'Biểu tượng':'Hình minh họa bài tập')+'<select data-field="'+k+'">'+Object.entries(opts).map(([code,name])=>'<option value="'+code+'"'+(v===code?' selected':'')+'>'+name+'</option>').join('')+(!opts[v]&&v?'<option selected value="'+esc(v)+'">Hình đang dùng</option>':'')+'</select></label>';}
  if(k==='currency')return '<label>Tiền tệ<select data-field="currency">'+['VND','USD','EUR'].map(vv=>'<option'+(v===vv?' selected':'')+'>'+vv+'</option>').join('')+'</select></label>';
  if(k==='display_layout')return '<label>Kiểu hiển thị sản phẩm<select data-field="display_layout"><option value="detail"'+(v!=='card'?' selected':'')+'>Chi tiết 2 cột kèm album ảnh (như ảnh mẫu)</option><option value="card"'+(v==='card'?' selected':'')+'>Thẻ gọn đứng (Card)</option></select></label>';
- if(['original','description','value','image_url','gallery_urls'].includes(k))return '<label>'+esc(names[k]||k)+'<textarea data-field="'+k+'"'+(readonly?' readonly':'')+' rows="3">'+esc(v)+'</textarea></label>';
+ if(k==='chat_bubble_enabled')return '<label>Hiển thị nút Chat Bubble nổi<select data-field="chat_bubble_enabled"><option value="TRUE"'+(v!=='FALSE'?' selected':'')+'>🟢 BẬT — Hiển thị Chat Bubble nổi trên Web App</option><option value="FALSE"'+(v==='FALSE'?' selected':'')+'>🔴 TẮT — Ẩn hoàn toàn Chat Bubble</option></select></label>';
+  if(['original','description','value','image_url','gallery_urls','tracking_scripts'].includes(k))return '<label>'+esc(names[k]||settings[k]||k)+'<textarea data-field="'+k+'"'+(readonly?' readonly':'')+' rows="'+(k==='tracking_scripts'?6:3)+'" placeholder="'+(k==='tracking_scripts'?'Dán toàn bộ mã theo dõi Google Analytics (G-XXXXX), Facebook Pixel (Meta Pixel), Microsoft Clarity, Google Tag Manager... vào đây':'')+'">'+esc(v)+'</textarea></label>';
  return '<label>'+esc(names[k]||k)+'<input data-field="'+k+'" '+(['price','minutes','reps','hold','product_desc_word_limit'].includes(k)?'type="number" min="0" step="any"':'type="text"')+' value="'+esc(v)+'"'+(readonly?' readonly':'')+'></label>';}
 function toolbar(){return '<details class="format-tools"><summary>Định dạng & chèn nội dung</summary><div class="toolbar" role="toolbar" aria-label="Định dạng nội dung">'+[['bold','Đậm'],['italic','Nghiêng'],['underline','Gạch chân'],['insertUnorderedList','Danh sách'],['insertOrderedList','Đánh số'],['justifyLeft','Trái'],['justifyCenter','Giữa'],['justifyRight','Phải'],['undo','Hoàn tác'],['redo','Làm lại'],['removeFormat','Bỏ định dạng']].map(([cmd,label])=>'<button type="button" class="alt" data-command="'+cmd+'">'+label+'</button>').join('')+'<select data-format aria-label="Kiểu đoạn"><option value="p">Đoạn văn</option><option value="h2">Tiêu đề lớn</option><option value="h3">Tiêu đề nhỏ</option><option value="blockquote">Trích dẫn</option></select>'+[['link','Chèn link'],['unlink','Gỡ link'],['image','Chèn ảnh'],['youtube','Chèn video'],['products','Chèn sản phẩm']].filter(([cmd])=>!(table==='Products'&&cmd==='products')).map(([cmd,label])=>'<button class="alt" data-insert="'+cmd+'">'+label+'</button>').join('')+'</div></details>';}
 function editorChip(kind,data,align){
@@ -170,9 +171,10 @@ function editorChip(kind,data,align){
   }
 }
 function richField(k,label,value){return '<section class="rich-field"><h3>'+esc(label)+'</h3>'+toolbar()+'<div class="rich-editor acs-rich" contenteditable="true" role="textbox" aria-multiline="true" aria-label="'+esc(label)+'" data-rich="'+k+'">'+ACSRich.editor(value,{productName,editorChip})+'</div><p class="muted">Viết trực tiếp. Bôi đen chữ để định dạng hoặc chèn link. Bấm nút “Thay đổi sản phẩm” trên khối để đổi sản phẩm khác nhanh chóng.</p></section>';}
-function list(){if(!state)return;el('section-title').textContent=sections[table];el('menu-label').textContent='Quản lý nội dung · '+sections[table];el('new').hidden=['Topics','Texts','Announcements'].includes(table);if(table==='Announcements'){el('list').innerHTML='<div style="padding:14px;font-size:13px;color:#2c5270;line-height:1.6"><h4 style="margin:0 0 8px;color:#103652">🔔 Gửi thông báo</h4><p style="margin:0">Admin có thể soạn thông báo và bấm gửi ngay xuống web app người dùng. Nếu người dùng đang mở app thì popup sẽ hiện ngay lập tức.</p></div>';renderAnnouncementsPanel();return;}const q=el('search').value.toLocaleLowerCase();el('list').innerHTML=sorted(state.tables[table]).filter(r=>String(title(r)).toLocaleLowerCase().includes(q)).map(r=>'<div class="list-item" draggable="true" data-record="'+esc(r[key()])+'"><button class="list-choice '+(r[key()]===selected?'selected':'')+'" data-id="'+esc(r[key()])+'">'+esc(String(title(r)).slice(0,110))+(r.published===false?' · Nháp':'')+'</button>'+('sort_order' in r?'<div class="sort-controls"><button class="alt" data-sort="up" data-id="'+esc(r[key()])+'" aria-label="Đưa lên">↑</button><button class="alt" data-sort="down" data-id="'+esc(r[key()])+'" aria-label="Đưa xuống">↓</button></div>':'')+'</div>').join('')||'<p>Chưa có nội dung phù hợp.</p>';}
+function list(){if(!state)return;el('section-title').textContent=sections[table];el('menu-label').textContent='Quản lý nội dung · '+sections[table];el('new').hidden=['Topics','Texts','Announcements','Analytics'].includes(table);if(table==='Analytics'){el('list').innerHTML='<div style="padding:14px;font-size:13px;color:#2c5270;line-height:1.6"><h4 style="margin:0 0 8px;color:#103652">📊 Báo cáo Thống kê</h4><p style="margin:0">Theo dõi số thiết bị truy cập, tỷ lệ cài đặt App trên điện thoại và nhật ký tạo, đồng bộ, xóa lịch thời gian thực.</p></div>';renderAnalyticsDashboard();return;}
+if(table==='Announcements'){el('list').innerHTML='<div style="padding:14px;font-size:13px;color:#2c5270;line-height:1.6"><h4 style="margin:0 0 8px;color:#103652">🔔 Gửi thông báo</h4><p style="margin:0">Admin có thể soạn thông báo và bấm gửi ngay xuống web app người dùng. Nếu người dùng đang mở app thì popup sẽ hiện ngay lập tức.</p></div>';renderAnnouncementsPanel();return;}const q=el('search').value.toLocaleLowerCase();el('list').innerHTML=sorted(state.tables[table]).filter(r=>String(title(r)).toLocaleLowerCase().includes(q)).map(r=>'<div class="list-item" draggable="true" data-record="'+esc(r[key()])+'"><button class="list-choice '+(r[key()]===selected?'selected':'')+'" data-id="'+esc(r[key()])+'">'+esc(String(title(r)).slice(0,110))+(r.published===false?' · Nháp':'')+'</button>'+('sort_order' in r?'<div class="sort-controls"><button class="alt" data-sort="up" data-id="'+esc(r[key()])+'" aria-label="Đưa lên">↑</button><button class="alt" data-sort="down" data-id="'+esc(r[key()])+'" aria-label="Đưa xuống">↓</button></div>':'')+'</div>').join('')||'<p>Chưa có nội dung phù hợp.</p>';}
 function combinedArticle(id){return sorted(state.tables.ArticleBlocks.filter(b=>b.article_id===id)).map(b=>(b.heading?'<h3>'+esc(b.heading)+'</h3>':'')+(b.type==='list'?'<ul>'+String(b.content||'').split('\n').map(v=>'<li>'+ACSRich.editor(v,{productName,editorChip})+'</li>').join('')+'</ul>':ACSRich.editor(b.content,{productName,editorChip}))).join('');}
-function openRecord(id){if(table==='Announcements'){renderAnnouncementsPanel();return;}selected=id;draft=structuredClone(state.tables[table].find(r=>r[key()]===id)||{});if(!id){draft.published=false;if(table==='Articles'){draft.minutes=3;draft.icon='spine';}if(table==='Products'){draft.currency='VND';draft.display_layout='detail';}if(table==='Exercises'){draft.fig='flex';draft.reps=5;draft.hold=5;}if(table==='Settings')draft.key=Object.keys(settings).find(k=>!state.tables.Settings.some(r=>r.key===k))||'';}
+function openRecord(id){if(table==='Analytics'){renderAnalyticsDashboard();return;}if(table==='Announcements'){renderAnnouncementsPanel();return;}selected=id;draft=structuredClone(state.tables[table].find(r=>r[key()]===id)||{});if(!id){draft.published=false;if(table==='Articles'){draft.minutes=3;draft.icon='spine';}if(table==='Products'){draft.currency='VND';draft.display_layout='detail';}if(table==='Exercises'){draft.fig='flex';draft.reps=5;draft.hold=5;}if(table==='Settings')draft.key=Object.keys(settings).find(k=>!state.tables.Settings.some(r=>r.key===k))||'';}
  dirty=false;activeRich=null;selection=null;renderEditor();list();if(matchMedia('(max-width:700px)').matches)el('browse').open=false;el('editor').scrollIntoView({block:'start',behavior:'smooth'});}
 function topicForm(value,path=''){if(Array.isArray(value)){if(value.every(v=>typeof v==='string'))return '<label>'+esc(names[path.split('.').pop()]||'Các ý (mỗi ý một dòng)')+'<textarea data-topic="'+esc(path)+'" data-kind="strings">'+esc(value.join('\n'))+'</textarea></label>';return '<details open><summary>'+esc(names[path.split('.').pop()]||'Các điểm')+'</summary>'+value.map((v,i)=>'<details><summary>Điểm '+(i+1)+' · '+esc(v.name||'')+'</summary>'+topicForm(v,path+'.'+i)+'</details>').join('')+'</details>';}
  if(value&&typeof value==='object')return '<div class="grid">'+Object.entries(value).filter(([k])=>!['id','icon','name'].includes(k)||path.includes('spots')).map(([k,v])=>topicForm(v,path?path+'.'+k:k)).join('')+'</div>';
@@ -180,7 +182,7 @@ function topicForm(value,path=''){if(Array.isArray(value)){if(value.every(v=>typ
  if(['x','y','band'].includes(k))return '<label>'+esc(names[k])+'<input type="number" step="any" data-topic="'+esc(path)+'" data-kind="number" value="'+esc(value)+'"></label>';
  return '<label>'+esc(names[k]||k)+'<textarea data-topic="'+esc(path)+'" data-kind="string">'+esc(value)+'</textarea></label>';}
 function stepHTML(v,i){return '<div class="step-card" draggable="true" data-step="'+i+'"><div class="row"><strong>Bước '+(i+1)+'</strong><button class="alt" data-step-act="up" aria-label="Đưa bước lên">↑</button><button class="alt" data-step-act="down" aria-label="Đưa bước xuống">↓</button><button class="alt" data-step-act="remove">Xóa bước</button></div>'+richField('step-'+i,'Hướng dẫn bước '+(i+1),v)+'</div>';}
-function renderEditor(){if(table==='Announcements'){renderAnnouncementsPanel();return;}const f=k=>field(k,draft[k]??''),primary=[],advanced=[];let content='';
+function renderEditor(){if(table==='Analytics'){renderAnalyticsDashboard();return;}if(table==='Announcements'){renderAnnouncementsPanel();return;}const f=k=>field(k,draft[k]??''),primary=[],advanced=[];let content='';
  if(table==='Articles'){primary.push(f('title'),f('published'));advanced.push(f('icon'),f('minutes'),f('cover_url'),f('cover_alt'),f('urgent'));content=richField('article','Nội dung bài viết',ACSRich.encode(combinedArticle(selected)));}
  if(table==='Tips')content=richField('content','Nội dung mẹo',draft.content||'');
  if(table==='Products'){['name','price','currency','image_url','gallery_urls','buy_url','button_label','display_layout','published'].forEach(k=>primary.push(f(k)));['video_url','video_button_label','button_class','video_button_class','badge_label'].forEach(k=>advanced.push(f(k)));content=richField('description','Mô tả sản phẩm',draft.description||'')+'<div class="card" style="margin-top:18px;background:#fcf9f2;border:2px dashed #24516c"><div class="row" style="justify-content:space-between"><h3>👁️ Xem trước giao diện sản phẩm trên web</h3><span class="muted small">Tự động cập nhật khi bác chỉnh sửa</span></div><div id="product-live-preview" class="preview" style="padding:10px;margin-top:8px">'+productHTML(selected,draft)+'</div></div>';}
@@ -267,6 +269,193 @@ function productHTML(id,override){
 }
 
 /* ====== Bảng điều khiển Gửi thông báo hệ thống ====== */
+async function renderAnalyticsDashboard(){
+  el('editor').innerHTML='<div style="padding:28px;text-align:center"><p class="muted" style="font-size:15px">⏳ Đang tải dữ liệu thống kê thiết bị và lịch từ máy chủ...</p></div>';
+  const apiUrl=(location.hostname==='ancotsong.khoedepchudong.com'||location.hostname==='localhost')?'/api/telemetry':'https://ancotsong.khoedepchudong.com/api/telemetry';
+  try{
+    const res=await fetch(apiUrl,{cache:'no-store'});
+    if(!res.ok)throw new Error('Lỗi máy chủ ('+res.status+')');
+    const data=await res.json();
+    const sum=data.summary||{};
+    const devices=data.devices||[];
+    const schedules=data.schedules||[];
+    const events=data.recentEvents||[];
+    const updatedTime=data.updatedAt?new Date(data.updatedAt).toLocaleString('vi-VN'):'';
+
+    let html='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">'
+      +'<div><h2 style="margin:0;color:#103652">📊 Thống kê Thiết bị & Lịch nhắc việc</h2>'
+      +'<span class="small muted">Dữ liệu thời gian thực • Cập nhật lúc: '+esc(updatedTime)+'</span></div>'
+      +'<div class="row" style="gap:8px">'
+      +'<button type="button" class="alt" id="btn-refresh-stats" style="font-size:13px;padding:6px 14px">🔄 Làm mới dữ liệu</button>'
+      +'<button type="button" class="alt" id="btn-export-stats" style="font-size:13px;padding:6px 14px">📥 Xuất file JSON</button>'
+      +'</div>'
+      +'</div>';
+
+    // 6 KPI Metric Cards
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">'
+      +'<div style="background:#f0f7fb;border:1.5px solid #bce1fb;border-radius:10px;padding:12px 14px">'
+      +  '<div style="font-size:12px;font-weight:700;color:#184a6e;text-transform:uppercase">📱 Tổng thiết bị</div>'
+      +  '<div style="font-size:26px;font-weight:800;color:#0e3654;margin:4px 0">'+sum.totalDevices+'</div>'
+      +  '<div style="font-size:12px;color:#557">Mobile: '+(data.breakdowns?.byType?.Mobile||0)+' • Desktop: '+(data.breakdowns?.byType?.Desktop||0)+'</div>'
+      +'</div>'
+      +'<div style="background:#e8f7ee;border:1.5px solid #9de0b2;border-radius:10px;padding:12px 14px">'
+      +  '<div style="font-size:12px;font-weight:700;color:#1b6e32;text-transform:uppercase">📲 Cài đặt như App (PWA)</div>'
+      +  '<div style="font-size:26px;font-weight:800;color:#135325;margin:4px 0">'+sum.installedDevices+'</div>'
+      +  '<div style="font-size:12px;color:#226e38">Tỷ lệ cài: <b>'+sum.installRate+'</b> (Đã đặt ra Home Screen)</div>'
+      +'</div>'
+      +'<div style="background:#fef7e6;border:1.5px solid #f9df98;border-radius:10px;padding:12px 14px">'
+      +  '<div style="font-size:12px;font-weight:700;color:#8f6000;text-transform:uppercase">🟢 Hoạt động hôm nay</div>'
+      +  '<div style="font-size:26px;font-weight:800;color:#6b4800;margin:4px 0">'+sum.activeToday+'</div>'
+      +  '<div style="font-size:12px;color:#855d0a">Trong 7 ngày qua: '+sum.active7Days+' máy</div>'
+      +'</div>'
+      +'<div style="background:#f5f0fb;border:1.5px solid #dfc9f7;border-radius:10px;padding:12px 14px">'
+      +  '<div style="font-size:12px;font-weight:700;color:#5c2299;text-transform:uppercase">⏱️ Số phiên & Thời gian</div>'
+      +  '<div style="font-size:26px;font-weight:800;color:#451277;margin:4px 0">'+sum.totalSessions+'</div>'
+      +  '<div style="font-size:12px;color:#682ba7">Tổng dùng: ~'+sum.totalUsageMinutes+' phút</div>'
+      +'</div>'
+      +'<div style="background:#f0faf6;border:1.5px solid #a6e7cd;border-radius:10px;padding:12px 14px">'
+      +  '<div style="font-size:12px;font-weight:700;color:#166a47;text-transform:uppercase">📅 Lịch đang hoạt động</div>'
+      +  '<div style="font-size:26px;font-weight:800;color:#0e5235;margin:4px 0">'+sum.activeSchedules+'</div>'
+      +  '<div style="font-size:12px;color:#186c48">Tổng tạo: '+sum.totalSchedulesCreated+' • Đã xóa: '+sum.deletedSchedules+'</div>'
+      +'</div>'
+      +'<div style="background:#fff3eb;border:1.5px solid #ffd0b0;border-radius:10px;padding:12px 14px">'
+      +  '<div style="font-size:12px;font-weight:700;color:#9c480d;text-transform:uppercase">🔄 Đồng bộ Lịch Mobile</div>'
+      +  '<div style="font-size:26px;font-weight:800;color:#783303;margin:4px 0">'+sum.mobileSyncedSchedules+'</div>'
+      +  '<div style="font-size:12px;color:#8a400c">Lịch đã vào Apple / Google Calendar</div>'
+      +'</div>'
+      +'</div>';
+
+    // Tabs navigation
+    html+='<div style="display:flex;gap:8px;border-bottom:2px solid #dde6eb;margin-bottom:16px">'
+      +'<button type="button" id="tab-btn-devices" class="alt" style="border:none;border-bottom:3px solid #24516c;border-radius:0;font-weight:700;padding:8px 16px;background:none;color:#103652">📱 Danh sách Thiết bị ('+devices.length+')</button>'
+      +'<button type="button" id="tab-btn-schedules" class="alt" style="border:none;border-radius:0;font-weight:700;padding:8px 16px;background:none;color:#666">🗓️ Thống kê Lịch ('+schedules.length+')</button>'
+      +'<button type="button" id="tab-btn-events" class="alt" style="border:none;border-radius:0;font-weight:700;padding:8px 16px;background:none;color:#666">📋 Nhật ký Sự kiện ('+events.length+')</button>'
+      +'</div>';
+
+    // Section 1: Devices Table
+    html+='<div id="tab-content-devices" style="overflow-x:auto">'
+      +'<table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left">'
+      +'<thead><tr style="background:#f4f8fa;border-bottom:2px solid #c9d8e0">'
+      +'<th style="padding:10px 8px">Mã Thiết bị (ID)</th>'
+      +'<th style="padding:10px 8px">Loại máy & HĐH</th>'
+      +'<th style="padding:10px 8px">Trình duyệt</th>'
+      +'<th style="padding:10px 8px">Cài App (PWA)</th>'
+      +'<th style="padding:10px 8px">Ngày cài đặt</th>'
+      +'<th style="padding:10px 8px">Lần đầu xem</th>'
+      +'<th style="padding:10px 8px">Lần cuối dùng</th>'
+      +'<th style="padding:10px 8px;text-align:center">Số phiên</th>'
+      +'<th style="padding:10px 8px">Thời gian dùng</th>'
+      +'</tr></thead><tbody>'
+      +(devices.length===0?'<tr><td colspan="9" style="text-align:center;padding:24px" class="muted">Chưa có thiết bị nào được ghi nhận. Khi người dùng mở Web App, dữ liệu sẽ tự động xuất hiện tại đây.</td></tr>'
+        :devices.map(d=>{
+          const isInst=Boolean(d.isInstalled);
+          const instBadge=isInst?'<span style="background:#e8f7ee;color:#1b6e32;padding:3px 8px;border-radius:999px;font-weight:700;font-size:11px">📲 ĐÃ CÀI APP</span>':'<span style="background:#f0f4f8;color:#557;padding:3px 8px;border-radius:999px;font-size:11px">🌐 Trình duyệt</span>';
+          const instTime=d.installedAt?new Date(d.installedAt).toLocaleString('vi-VN'):'—';
+          const firstTime=d.firstSeen?new Date(d.firstSeen).toLocaleString('vi-VN'):'—';
+          const lastTime=d.lastSeen?new Date(d.lastSeen).toLocaleString('vi-VN'):'—';
+          const mins=Math.round((d.activeSeconds||0)/60);
+          return '<tr style="border-bottom:1px solid #e5edf1">'
+            +'<td style="padding:10px 8px;font-family:monospace;font-size:12px;font-weight:600;color:#1b4a6b" title="'+esc(d.id)+'">'+esc(d.id.length>18?d.id.slice(0,16)+'…':d.id)+'</td>'
+            +'<td style="padding:10px 8px"><b>'+esc(d.type||'Thiết bị')+'</b><div style="font-size:11px;color:#666">'+esc(d.os||'')+(d.screen?' • '+esc(d.screen):'')+'</div></td>'
+            +'<td style="padding:10px 8px">'+esc(d.browser||'—')+'</td>'
+            +'<td style="padding:10px 8px">'+instBadge+'</td>'
+            +'<td style="padding:10px 8px;font-size:12px">'+instTime+'</td>'
+            +'<td style="padding:10px 8px;font-size:12px">'+firstTime+'</td>'
+            +'<td style="padding:10px 8px;font-size:12px;color:#184a6e;font-weight:600">'+lastTime+'</td>'
+            +'<td style="padding:10px 8px;font-weight:700;text-align:center">'+(d.sessionCount||1)+'</td>'
+            +'<td style="padding:10px 8px">'+mins+' phút</td>'
+            +'</tr>';
+        }).join(''))
+      +'</tbody></table></div>';
+
+    // Section 2: Schedules Table
+    html+='<div id="tab-content-schedules" style="display:none;overflow-x:auto">'
+      +'<table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left">'
+      +'<thead><tr style="background:#f4f8fa;border-bottom:2px solid #c9d8e0">'
+      +'<th style="padding:10px 8px">Mã lịch</th>'
+      +'<th style="padding:10px 8px">Tên việc / Lịch nhắc</th>'
+      +'<th style="padding:10px 8px">Giờ hẹn & Lặp lại</th>'
+      +'<th style="padding:10px 8px">Thiết bị sở hữu</th>'
+      +'<th style="padding:10px 8px">Trạng thái</th>'
+      +'<th style="padding:10px 8px">Đồng bộ Mobile</th>'
+      +'<th style="padding:10px 8px">Thời gian tạo</th>'
+      +'<th style="padding:10px 8px">Cập nhật / Xóa</th>'
+      +'</tr></thead><tbody>'
+      +(schedules.length===0?'<tr><td colspan="8" style="text-align:center;padding:24px" class="muted">Chưa có lịch nhắc việc nào được tạo trên thiết bị người dùng.</td></tr>'
+        :schedules.map(s=>{
+          const isAct=s.status==='active';
+          const stBadge=isAct?'<span style="background:#e8f7ee;color:#1b6e32;padding:3px 8px;border-radius:999px;font-weight:700;font-size:11px">🟢 ĐANG HOẠT ĐỘNG</span>':'<span style="background:#fde8e8;color:#c5221f;padding:3px 8px;border-radius:999px;font-weight:700;font-size:11px">🔴 ĐÃ BỊ XÓA</span>';
+          const syncBadge=s.syncedMobile?'<span style="color:#1b6e32;font-weight:700">✓ Đã đồng bộ</span>':'<span class="muted">Chưa đăng ký</span>';
+          const createTime=s.createdAt?new Date(s.createdAt).toLocaleString('vi-VN'):'—';
+          const updateTime=s.updatedAt?new Date(s.updatedAt).toLocaleString('vi-VN'):'—';
+          return '<tr style="border-bottom:1px solid #e5edf1">'
+            +'<td style="padding:10px 8px;font-family:monospace;font-size:12px;color:#555">'+esc(s.id)+'</td>'
+            +'<td style="padding:10px 8px;font-weight:700;color:#123956">'+esc(s.title)+'</td>'
+            +'<td style="padding:10px 8px"><span style="color:#b24a00;font-weight:700">'+esc(s.time||'—')+'</span> <span class="small muted">('+esc(s.repeatText||'Hằng ngày')+')</span></td>'
+            +'<td style="padding:10px 8px;font-family:monospace;font-size:12px" title="'+esc(s.deviceId)+'">'+esc(s.deviceId?(s.deviceId.slice(0,14)+'…'):'—')+'</td>'
+            +'<td style="padding:10px 8px">'+stBadge+'</td>'
+            +'<td style="padding:10px 8px;font-size:12px">'+syncBadge+'</td>'
+            +'<td style="padding:10px 8px;font-size:12px">'+createTime+'</td>'
+            +'<td style="padding:10px 8px;font-size:12px">'+updateTime+'</td>'
+            +'</tr>';
+        }).join(''))
+      +'</tbody></table></div>';
+
+    // Section 3: Events Activity Log
+    html+='<div id="tab-content-events" style="display:none;overflow-x:auto">'
+      +'<div style="display:flex;flex-direction:column;gap:8px">'
+      +(events.length===0?'<p class="muted" style="text-align:center;padding:24px">Chưa có sự kiện nào trong nhật ký.</p>'
+        :events.map(ev=>{
+          const t=ev.time?new Date(ev.time).toLocaleString('vi-VN'):'—';
+          return '<div style="background:#fff;border:1px solid #d8e4eb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+            +'<div><strong style="color:#103652">'+esc(ev.title||ev.action||'')+'</strong>'
+            +(ev.detail?'<div style="font-size:12px;color:#556;margin-top:2px">'+esc(ev.detail)+'</div>':'')
+            +'</div>'
+            +'<div style="text-align:right"><span class="small muted">'+t+'</span><div style="font-family:monospace;font-size:11px;color:#889">Thiết bị: '+esc(ev.deviceId||'')+'</div></div>'
+            +'</div>';
+        }).join(''))
+      +'</div></div>';
+
+    el('editor').innerHTML=html;
+
+    const setTab=activeTab=>{
+      ['devices','schedules','events'].forEach(tab=>{
+        const isCur=tab===activeTab;
+        const btn=el('tab-btn-'+tab);
+        const content=el('tab-content-'+tab);
+        if(btn){
+          btn.style.borderBottom=isCur?'3px solid #24516c':'none';
+          btn.style.color=isCur?'#103652':'#666';
+        }
+        if(content){
+          content.style.display=isCur?'block':'none';
+        }
+      });
+    };
+    el('tab-btn-devices').onclick=()=>setTab('devices');
+    el('tab-btn-schedules').onclick=()=>setTab('schedules');
+    el('tab-btn-events').onclick=()=>setTab('events');
+
+    el('btn-refresh-stats').onclick=()=>renderAnalyticsDashboard();
+    el('btn-export-stats').onclick=()=>{
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='an-cot-song-thong-ke-'+new Date().toISOString().slice(0,10)+'.json';
+      a.click();
+    };
+
+  }catch(err){
+    el('editor').innerHTML='<div class="card" style="background:#fff4f4;border:2px solid #e53935;padding:18px">'
+      +'<h3 style="color:#c5221f;margin-top:0">⚠️ Không thể tải dữ liệu thống kê từ máy chủ</h3>'
+      +'<p>'+esc(err.message)+'</p>'
+      +'<p class="small muted">Vui lòng kiểm tra kết nối mạng hoặc thử lại sau vài giây.</p>'
+      +'<button type="button" class="hot" id="retry-stats" style="margin-top:10px">Thử lại</button>'
+      +'</div>';
+    el('retry-stats').onclick=()=>renderAnalyticsDashboard();
+  }
+}
+
 function renderAnnouncementsPanel(){
  let ann=null;
  try{
