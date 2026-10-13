@@ -59,26 +59,27 @@ global.AdminAuth={start,contentCall};
 'use strict';const PREFIX='@acs-rich:',STEP='@acs-steps:';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function url(v,image=false){try{const u=new URL(v);return (u.protocol==='https:'||(!image&&['http:','mailto:','tel:'].includes(u.protocol)))?u.href:'';}catch(e){return '';}}
-function video(v){if(/^[\w-]{11}$/.test(v))return v;try{const u=new URL(v),h=u.hostname;let id='';if(h==='youtu.be')id=u.pathname.split('/')[1];else if(['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(h))id=u.searchParams.get('v')||u.pathname.split('/').find((p,i,a)=>['embed','shorts','live'].includes(a[i-1]));return /^[\w-]{11}$/.test(id||'')?id:'';}catch(e){return '';}}
+function video(v){if(!v)return '';const m=String(v).match(/<iframe\b[^>]*\bsrc=["']([^"']+)["']/i);if(m)v=m[1];const s=String(v).trim();if(/^[\w-]{11}$/.test(s))return s;try{const u=new URL(s),h=u.hostname.toLowerCase();if(h==='youtu.be')return u.pathname.split('/')[1]||'';if(['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(h)){return u.searchParams.get('v')||u.pathname.split('/').find((p,i,a)=>['embed','shorts','live'].includes(a[i-1]))||'';}if(u.protocol==='https:')return s;}catch(_){}return '';}
+function videoEmbedSrc(v){if(!v)return '';const m=String(v).match(/<iframe\b[^>]*\bsrc=["']([^"']+)["']/i);if(m)v=m[1];const s=String(v).trim();if(/^[\w-]{11}$/.test(s))return 'https://www.youtube-nocookie.com/embed/'+s+'?playsinline=1';if(/^https:\/\//i.test(s)){if(/vimeo\.com/i.test(s)){const vmId=s.split('/').filter(Boolean).pop();return 'https://player.vimeo.com/video/'+vmId;}if(/drive\.google\.com/i.test(s)){return s.replace(/\/view(\?.*)?$/,'/preview');}return s;}return '';}
 function decode(v){if(!String(v||'').startsWith(PREFIX))return null;try{const d=JSON.parse(v.slice(PREFIX.length));return d.v===1&&typeof d.html==='string'?d.html:null;}catch(e){return null;}}
 function legacy(v){return String(v||'').split(/(\[\[(?:product|products|youtube):[^\]]*\]\]|<acs-(?:products|youtube)\b[^>]*>[\s\S]*?<\/acs-(?:products|youtube)>)/gi).map(t=>{const mTag=t.match(/^<acs-(products|youtube)\b([^>]*)>[\s\S]*?<\/acs-(products|youtube)>$/i);if(mTag)return t;const m=t.match(/^\[\[(product|products|youtube):([^\]]*)\]\]$/i);if(!m)return esc(t).replace(/\n/g,'<br>');return m[1].toLowerCase()==='youtube'?'<acs-youtube video="'+esc(video(m[2].trim()))+'"></acs-youtube>':'<acs-products ids="'+esc(m[2].trim())+'"></acs-products>';}).join('');}
 function clean(html,options={}){const src=document.createElement('template');src.innerHTML=String(html||'');const out=document.createElement('div');const tags=new Set(['P','DIV','H2','H3','H4','STRONG','B','EM','I','U','S','BLOCKQUOTE','UL','OL','LI','BR','HR','A','IMG','SPAN','FIGURE','FIGCAPTION']);
-function walk(node,parent){if(node.nodeType===3){parent.append(document.createTextNode(node.textContent));return;}if(node.nodeType!==1)return;const tag=node.tagName;if(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','SVG','MATH','FORM','INPUT','BUTTON','TEXTAREA'].includes(tag))return;
- if(tag==='ACS-PRODUCTS'){const ids=[...new Set(String(node.getAttribute('ids')||'').split(',').map(x=>x.trim()).filter(x=>x&&!/[\[\]<>"'\s]/.test(x)))];if(!ids.length)return;
-  const align=node.getAttribute('align')||'';
-  if(options.productsHTML){const t=document.createElement('template');t.innerHTML=options.productsHTML(ids,node);parent.append(t.content);return;}
-  const n=document.createElement('acs-products');n.setAttribute('ids',ids.join(','));if(align)n.setAttribute('align',align);n.setAttribute('contenteditable','false');n.setAttribute('tabindex','0');
-  if(options.editorChip){n.innerHTML=options.editorChip('products',ids,align);}
-  else{n.textContent='🛍 '+ids.map(id=>options.productName?options.productName(id):'Sản phẩm').join(' · ');}
-  parent.append(n);return;}
- if(tag==='ACS-YOUTUBE'){const id=video(node.getAttribute('video')||'');if(!id)return;
-  const align=node.getAttribute('align')||'';
-  const titleAttr=node.getAttribute('title')||'';
-  if(options.youtubeHTML){const t=document.createElement('template');t.innerHTML=options.youtubeHTML(id,node);parent.append(t.content);return;}
-  const n=document.createElement('acs-youtube');n.setAttribute('video',id);if(align)n.setAttribute('align',align);if(titleAttr)n.setAttribute('title',titleAttr);n.setAttribute('contenteditable','false');n.setAttribute('tabindex','0');
-  if(options.editorChip){n.innerHTML=options.editorChip('youtube',id,align,titleAttr);}
-  else{n.textContent='▶ Video YouTube';}
-  parent.append(n);return;}
+function walk(node,parent){if(node.nodeType===3){const t=node.textContent.replace(/Mã:\s*[\w-]+\s*·\s*Mở xem video/gi,'').replace(/▶\s*Video(\s*YouTube)?/gi,'');if(!t.trim()&&node.textContent.trim())return;parent.append(document.createTextNode(t));return;}if(node.nodeType!==1)return;const tag=node.tagName;if(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','SVG','MATH','FORM','INPUT','BUTTON','TEXTAREA'].includes(tag))return;
+  if(tag==='ACS-PRODUCTS'){const ids=[...new Set(String(node.getAttribute('ids')||'').split(',').map(x=>x.trim()).filter(x=>x&&!/[\[\]<>"'\s]/.test(x)))];if(!ids.length)return;
+   const align=node.getAttribute('align')||'';
+   if(options.productsHTML){const t=document.createElement('template');t.innerHTML=options.productsHTML(ids,node);parent.append(t.content);return;}
+   const n=document.createElement('acs-products');n.setAttribute('ids',ids.join(','));if(align)n.setAttribute('align',align);n.setAttribute('contenteditable','false');n.setAttribute('tabindex','0');
+   if(options.editorChip){n.innerHTML=options.editorChip('products',ids,align);}
+   else{n.innerHTML='';}
+   parent.append(n);return;}
+  if(tag==='ACS-YOUTUBE'){const id=video(node.getAttribute('video')||'');if(!id)return;
+   const align=node.getAttribute('align')||'';
+   const titleAttr=node.getAttribute('title')||'';
+   if(options.youtubeHTML){const t=document.createElement('template');t.innerHTML=options.youtubeHTML(id,node);parent.append(t.content);return;}
+   const n=document.createElement('acs-youtube');n.setAttribute('video',id);if(align)n.setAttribute('align',align);if(titleAttr)n.setAttribute('title',titleAttr);n.setAttribute('contenteditable','false');n.setAttribute('tabindex','0');
+   if(options.editorChip){n.innerHTML=options.editorChip('youtube',id,align,titleAttr);}
+   else{n.innerHTML='';}
+   parent.append(n);return;}
  if(!tags.has(tag)){node.childNodes.forEach(c=>walk(c,parent));return;}const n=document.createElement(tag.toLowerCase());
  if(['normal','bold','400','700'].includes(node.style.fontWeight))n.style.fontWeight=node.style.fontWeight;if(['normal','italic'].includes(node.style.fontStyle))n.style.fontStyle=node.style.fontStyle;if(['none','underline','line-through'].includes(node.style.textDecoration))n.style.textDecoration=node.style.textDecoration;
  const align=node.style.textAlign;if(['left','center','right','justify'].includes(align))n.style.textAlign=align;
@@ -91,12 +92,12 @@ function encode(html){return PREFIX+JSON.stringify({v:1,html:clean(html)});}
 function render(v,options={}){return '<div class="acs-rich">'+editor(v,options)+'</div>';}
 function text(v){const box=document.createElement('div');box.innerHTML=editor(v);box.querySelectorAll('br').forEach(n=>n.replaceWith('\n'));box.querySelectorAll('p,div,li,h2,h3,h4').forEach(n=>n.append('\n'));return box.textContent.trim();}
 function steps(v){if(String(v||'').startsWith(STEP)){try{const d=JSON.parse(v.slice(STEP.length));if(d.v===1&&Array.isArray(d.steps))return d.steps.map(String);}catch(e){}}return String(v||'').split('\n');}
-global.ACSRich={PREFIX,STEP,esc,url,video,clean,editor,encode,render,text,steps,encodeSteps:steps=>STEP+JSON.stringify({v:1,steps})};
+global.ACSRich={PREFIX,STEP,esc,url,video,videoEmbedSrc,clean,editor,encode,render,text,steps,encodeSteps:steps=>STEP+JSON.stringify({v:1,steps})};
 })(window);
 </script><script>'use strict';
 const sections={Announcements:'Gửi thông báo',Articles:'Bài viết',Products:'Sản phẩm',Topics:'Chuyên đề',Exercises:'Bài tập',Tips:'Mẹo hằng ngày',Settings:'Cài đặt website',Texts:'Chữ giao diện'};
-const names={title:'Tiêu đề',name:'Tên',minutes:'Thời gian đọc (phút)',cover_url:'Ảnh bìa',cover_alt:'Mô tả ảnh bìa',urgent:'Nội dung cần chú ý',published:'Hiển thị trên web',price:'Giá',currency:'Tiền tệ',image_url:'Ảnh chính & Album ảnh (nhập 1 hoặc nhiều link HTTPS, cách nhau bằng dấu phẩy hoặc xuống dòng)',video_url:'Video YouTube sản phẩm',buy_url:'Link tìm hiểu / mua',description:'Mô tả sản phẩm',button_label:'Chữ nút tìm hiểu / mua (mặc định: Tìm hiểu thêm)',button_class:'Class CSS nút mua',video_button_label:'Chữ nút video (mặc định: Xem video)',video_button_class:'Class CSS nút video',display_layout:'Kiểu hiển thị sản phẩm',badge_label:'Dòng chữ nhãn sản phẩm',reps:'Số lần',hold:'Thời gian giữ (giây)',sub:'Mô tả ngắn',tip:'Lưu ý',content:'Nội dung',original:'Chữ gốc',value:'Nội dung mới',hint:'Hướng dẫn',spots:'Các điểm trên mô hình',x:'Vị trí ngang (%)',y:'Vị trí dọc (%)',what:'Giải thích',feel:'Triệu chứng',do:'Có thể làm',see:'Khi nào cần khám',band:'Nhóm vùng'};
-const settings={app_name:'Tên ứng dụng',tagline:'Khẩu hiệu',disclaimer:'Lời giải thích của ứng dụng',product_intro_label:'Dòng chữ nhãn sản phẩm (mặc định: Sản phẩm tham khảo)',exercise_safety:'An toàn khi tập',custom_css:'CSS tùy chỉnh',custom_js:'JavaScript tùy chỉnh',custom_js_enabled:'Bật JavaScript tùy chỉnh',model_spine_url:'Link mô hình cột sống',model_neck_url:'Link mô hình cổ vai gáy',model_joint_url:'Link mô hình xương khớp',model_bp_url:'Link mô hình tim',heart_point_1:'Giải thích tâm nhĩ',heart_point_2:'Giải thích tâm thất',heart_point_3:'Giải thích động mạch chủ',heart_point_4:'Giải thích động mạch vành',push_api_url:'Địa chỉ dịch vụ thông báo',announcement_data:'Dữ liệu thông báo hệ thống (JSON)'};
+const names={title:'Tiêu đề',name:'Tên',minutes:'Thời gian đọc (phút)',cover_url:'Ảnh bìa',cover_alt:'Mô tả ảnh bìa',urgent:'Nội dung cần chú ý',published:'Hiển thị trên web',price:'Giá',currency:'Tiền tệ',image_url:'Ảnh chính (Link HTTPS)',gallery_urls:'Album ảnh phụ (mỗi link 1 dòng hoặc cách nhau bởi dấu phẩy)',video_url:'Video sản phẩm (Link YouTube, Vimeo, Drive hoặc mã nhúng iframe)',buy_url:'Link tìm hiểu / mua',description:'Mô tả sản phẩm',button_label:'Chữ nút tìm hiểu / mua (mặc định: Tìm hiểu thêm)',button_class:'Class CSS nút mua',video_button_label:'Chữ nút video (mặc định: Xem video)',video_button_class:'Class CSS nút video',display_layout:'Kiểu hiển thị sản phẩm',badge_label:'Dòng chữ nhãn sản phẩm (tùy chọn, để trống nếu không dùng)',reps:'Số lần',hold:'Thời gian giữ (giây)',sub:'Mô tả ngắn',tip:'Lưu ý',content:'Nội dung',original:'Chữ gốc',value:'Nội dung mới',hint:'Hướng dẫn',spots:'Các điểm trên mô hình',x:'Vị trí ngang (%)',y:'Vị trí dọc (%)',what:'Giải thích',feel:'Triệu chứng',do:'Có thể làm',see:'Khi nào cần khám',band:'Nhóm vùng'};
+const settings={app_name:'Tên ứng dụng',tagline:'Khẩu hiệu',disclaimer:'Lời giải thích của ứng dụng',product_intro_label:'Dòng chữ nhãn sản phẩm mặc định (để trống nếu không dùng)',product_desc_word_limit:'Số từ mô tả hiển thị trước khi bấm xem thêm (mặc định: 80)',exercise_safety:'An toàn khi tập',custom_css:'CSS tùy chỉnh',custom_js:'JavaScript tùy chỉnh',custom_js_enabled:'Bật JavaScript tùy chỉnh',model_spine_url:'Link mô hình cột sống',model_neck_url:'Link mô hình cổ vai gáy',model_joint_url:'Link mô hình xương khớp',model_bp_url:'Link mô hình tim',heart_point_1:'Giải thích tâm nhĩ',heart_point_2:'Giải thích tâm thất',heart_point_3:'Giải thích động mạch chủ',heart_point_4:'Giải thích động mạch vành',push_api_url:'Địa chỉ dịch vụ thông báo',announcement_data:'Dữ liệu thông báo hệ thống (JSON)'};
 const icons={spine:'Cột sống',neck:'Cổ vai gáy',bone:'Xương',heart:'Tim',pulse:'Mạch',chair:'Tư thế',warn:'Cảnh báo',stretch:'Tập nhẹ'};
 const figures={flex:'Gập cổ',tilt:'Nghiêng cổ',turn:'Quay cổ',roll:'Xoay vai',squeeze:'Ép bả vai',twist:'Xoay người'};
 const el=id=>document.getElementById(id),esc=ACSRich.esc;let state,table='Articles',selected='',draft,dirty=false,busy=false,activeRich=null,selection=null,dragId=null,dragStep=null,editingChip=null;
@@ -111,8 +112,8 @@ function productName(id){return state.tables.Products.find(p=>p.id===id)?.name||
 function field(k,v='',readonly=false){if(k==='id'||k==='sort_order')return '';if(['published','urgent'].includes(k))return '<label class="check"><input data-field="'+k+'" type="checkbox"'+(v===true||String(v).toLowerCase()==='true'?' checked':'')+'>'+esc(names[k])+'</label>';if(k==='icon'||k==='fig'){const opts=k==='icon'?icons:figures;return '<label>'+ (k==='icon'?'Biểu tượng':'Hình minh họa bài tập')+'<select data-field="'+k+'">'+Object.entries(opts).map(([code,name])=>'<option value="'+code+'"'+(v===code?' selected':'')+'>'+name+'</option>').join('')+(!opts[v]&&v?'<option selected value="'+esc(v)+'">Hình đang dùng</option>':'')+'</select></label>';}
  if(k==='currency')return '<label>Tiền tệ<select data-field="currency">'+['VND','USD','EUR'].map(vv=>'<option'+(v===vv?' selected':'')+'>'+vv+'</option>').join('')+'</select></label>';
  if(k==='display_layout')return '<label>Kiểu hiển thị sản phẩm<select data-field="display_layout"><option value="detail"'+(v!=='card'?' selected':'')+'>Chi tiết 2 cột kèm album ảnh (như ảnh mẫu)</option><option value="card"'+(v==='card'?' selected':'')+'>Thẻ gọn đứng (Card)</option></select></label>';
- if(['original','description','value','image_url'].includes(k))return '<label>'+esc(names[k]||k)+'<textarea data-field="'+k+'"'+(readonly?' readonly':'')+'>'+esc(v)+'</textarea></label>';
- return '<label>'+esc(names[k]||k)+'<input data-field="'+k+'" '+(['price','minutes','reps','hold'].includes(k)?'type="number" min="0" step="any"':'type="text"')+' value="'+esc(v)+'"'+(readonly?' readonly':'')+'></label>';}
+ if(['original','description','value','image_url','gallery_urls'].includes(k))return '<label>'+esc(names[k]||k)+'<textarea data-field="'+k+'"'+(readonly?' readonly':'')+' rows="3">'+esc(v)+'</textarea></label>';
+ return '<label>'+esc(names[k]||k)+'<input data-field="'+k+'" '+(['price','minutes','reps','hold','product_desc_word_limit'].includes(k)?'type="number" min="0" step="any"':'type="text"')+' value="'+esc(v)+'"'+(readonly?' readonly':'')+'></label>';}
 function toolbar(){return '<details class="format-tools"><summary>Định dạng & chèn nội dung</summary><div class="toolbar" role="toolbar" aria-label="Định dạng nội dung">'+[['bold','Đậm'],['italic','Nghiêng'],['underline','Gạch chân'],['insertUnorderedList','Danh sách'],['insertOrderedList','Đánh số'],['justifyLeft','Trái'],['justifyCenter','Giữa'],['justifyRight','Phải'],['undo','Hoàn tác'],['redo','Làm lại'],['removeFormat','Bỏ định dạng']].map(([cmd,label])=>'<button type="button" class="alt" data-command="'+cmd+'">'+label+'</button>').join('')+'<select data-format aria-label="Kiểu đoạn"><option value="p">Đoạn văn</option><option value="h2">Tiêu đề lớn</option><option value="h3">Tiêu đề nhỏ</option><option value="blockquote">Trích dẫn</option></select>'+[['link','Chèn link'],['unlink','Gỡ link'],['image','Chèn ảnh'],['youtube','Chèn video'],['products','Chèn sản phẩm']].filter(([cmd])=>!(table==='Products'&&cmd==='products')).map(([cmd,label])=>'<button class="alt" data-insert="'+cmd+'">'+label+'</button>').join('')+'</div></details>';}
 function editorChip(kind,data,align){
   if(kind==='products'){
@@ -146,6 +147,7 @@ function editorChip(kind,data,align){
   if(kind==='youtube'){
     const effAlign=align==='left'?'left':(align==='right'?'right':'center');
     const titleText=arguments[3]||'';
+    const shortData=String(data).length>45?String(data).slice(0,42)+'…':data;
     return '<div class="chip-inner">'
       +'<div class="chip-top">'
       +  '<span class="chip-tag yt">▶ Video</span>'
@@ -162,7 +164,7 @@ function editorChip(kind,data,align){
       +'</div>'
       +'<div class="chip-summary">'
       +  (titleText?'<div style="font-weight:600;font-size:13px;margin-bottom:2px">'+esc(titleText)+'</div>':'')
-      +  '<span class="small">Mã: <code>'+esc(data)+'</code> · Mở xem video</span>'
+      +  '<span class="small" style="color:#555">Nguồn: <code>'+esc(shortData)+'</code></span>'
       +'</div>'
       +'</div>';
   }
@@ -181,7 +183,7 @@ function stepHTML(v,i){return '<div class="step-card" draggable="true" data-step
 function renderEditor(){if(table==='Announcements'){renderAnnouncementsPanel();return;}const f=k=>field(k,draft[k]??''),primary=[],advanced=[];let content='';
  if(table==='Articles'){primary.push(f('title'),f('published'));advanced.push(f('icon'),f('minutes'),f('cover_url'),f('cover_alt'),f('urgent'));content=richField('article','Nội dung bài viết',ACSRich.encode(combinedArticle(selected)));}
  if(table==='Tips')content=richField('content','Nội dung mẹo',draft.content||'');
- if(table==='Products'){['name','price','currency','image_url','buy_url','button_label','display_layout','published'].forEach(k=>primary.push(f(k)));['video_url','video_button_label','button_class','video_button_class','badge_label'].forEach(k=>advanced.push(f(k)));content=richField('description','Mô tả sản phẩm',draft.description||'')+'<div class="card" style="margin-top:18px;background:#fcf9f2;border:2px dashed #24516c"><div class="row" style="justify-content:space-between"><h3>👁️ Xem trước giao diện sản phẩm trên web</h3><span class="muted small">Tự động cập nhật khi bác chỉnh sửa</span></div><div id="product-live-preview" class="preview" style="padding:10px;margin-top:8px">'+productHTML(selected,draft)+'</div></div>';}
+ if(table==='Products'){['name','price','currency','image_url','gallery_urls','buy_url','button_label','display_layout','published'].forEach(k=>primary.push(f(k)));['video_url','video_button_label','button_class','video_button_class','badge_label'].forEach(k=>advanced.push(f(k)));content=richField('description','Mô tả sản phẩm',draft.description||'')+'<div class="card" style="margin-top:18px;background:#fcf9f2;border:2px dashed #24516c"><div class="row" style="justify-content:space-between"><h3>👁️ Xem trước giao diện sản phẩm trên web</h3><span class="muted small">Tự động cập nhật khi bác chỉnh sửa</span></div><div id="product-live-preview" class="preview" style="padding:10px;margin-top:8px">'+productHTML(selected,draft)+'</div></div>';}
  if(table==='Exercises'){['name','reps','hold','published'].forEach(k=>primary.push(f(k)));advanced.push(f('fig'),f('sub'));content='<h3>Các bước thực hành</h3><div id="practice-steps">'+ACSRich.steps(draft.steps||'').map(stepHTML).join('')+'</div><button class="alt" data-action="add-step">+ Thêm bước</button>'+richField('tip','Lưu ý',draft.tip||'');}
  if(table==='Topics'){primary.push(f('name'));advanced.push(f('icon'));content=topicForm(JSON.parse(draft.data_json));}
  if(table==='Settings'){if(!selected)primary.push('<label>Chọn cấu hình<select data-field="key">'+Object.entries(settings).filter(([k])=>!state.tables.Settings.some(r=>r.key===k)).map(([k,v])=>'<option value="'+k+'">'+esc(v)+'</option>').join('')+'</select></label>');else primary.push('<h3>'+esc(settings[draft.key]||'Cấu hình bổ sung')+'</h3>');if(draft.key==='custom_js_enabled')primary.push('<label>Bật mã JavaScript<select data-field="value"><option value="FALSE">Tắt</option><option value="TRUE"'+(draft.value==='TRUE'?' selected':'')+'>Bật</option></select></label>');else primary.push(f('value'));}
@@ -195,7 +197,7 @@ function productHTML(id,override){
  const p=override||state.tables.Products.find(p=>p.id===id);if(!p)return '';
  const rawImgs=[p.image_url,p.gallery_urls].filter(Boolean).join('\n');
  const imgUrls=rawImgs.split(/[\n,]/).map(s=>ACSRich.url(s.trim(),true)).filter(Boolean);
- const badge=p.badge_label||state.tables.Settings.find(s=>s.key==='product_intro_label')?.value||'Sản phẩm tham khảo';
+ const badge=p.badge_label&&p.badge_label!=='Sản phẩm tham khảo'?p.badge_label:'';
  const priceStr=Number(p.price||0).toLocaleString('vi-VN')+' '+(p.currency||'VND');
  const buy=ACSRich.url(p.buy_url);
  const vid=ACSRich.video(p.video_url);
@@ -204,26 +206,43 @@ function productHTML(id,override){
  let galleryHTML='';
  if(imgUrls.length>1){
   galleryHTML='<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;width:100%">'
-   +'<img id="'+pid+'-main" src="'+esc(imgUrls[0])+'" alt="'+esc(p.name)+'" style="width:100%;max-height:280px;object-fit:contain;border-radius:10px;background:#fff;border:1px solid #ddd">'
+   +'<div style="position:relative;width:100%;aspect-ratio:1;max-height:360px;background:#fff;border:1.5px solid #dce6eb;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.04)">'
+   +'<img id="'+pid+'-main" src="'+esc(imgUrls[0])+'" alt="'+esc(p.name)+'" style="width:100%!important;height:100%!important;max-height:100%!important;object-fit:contain!important;padding:6px;box-sizing:border-box">'
+   +'</div>'
    +'<div style="display:flex;gap:6px;overflow-x:auto;padding:2px">'
-   +imgUrls.map((u,i)=>'<img src="'+esc(u)+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:2px solid '+(i===0?'#e53935':'#ccc')+';cursor:pointer" onclick="document.getElementById(\''+pid+'-main\').src=\''+esc(u)+'\';this.parentElement.querySelectorAll(\'img\').forEach(x=>x.style.borderColor=\'#ccc\');this.style.borderColor=\'#e53935\'">').join('')
+   +imgUrls.map((u,i)=>'<img src="'+esc(u)+'" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:2px solid '+(i===0?'#e53935':'#ccc')+';cursor:pointer" onclick="document.getElementById(\''+pid+'-main\').src=\''+esc(u)+'\';this.parentElement.querySelectorAll(\'img\').forEach(x=>x.style.borderColor=\'#ccc\');this.style.borderColor=\'#e53935\'">').join('')
    +'</div></div>';
  }else if(imgUrls.length===1){
-  galleryHTML='<img src="'+esc(imgUrls[0])+'" alt="'+esc(p.name)+'" style="width:100%;max-height:280px;object-fit:contain;border-radius:10px;margin-bottom:10px;background:#fff;border:1px solid #ddd">';
+  galleryHTML='<div style="position:relative;width:100%;aspect-ratio:1;max-height:360px;background:#fff;border:1.5px solid #dce6eb;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:10px;box-shadow:0 4px 12px rgba(0,0,0,.04)">'
+   +'<img src="'+esc(imgUrls[0])+'" alt="'+esc(p.name)+'" style="width:100%!important;height:100%!important;max-height:100%!important;object-fit:contain!important;padding:6px;box-sizing:border-box">'
+   +'</div>';
  }
 
+ const plainDesc=ACSRich.text(p.description);
+ const wordCount=plainDesc.split(/\s+/).filter(Boolean).length;
+ const limitSetting=Number(state?.tables?.Settings?.find(s=>s.key==='product_desc_word_limit')?.value)||80;
+ const isLongDesc=wordCount>limitSetting;
+ const rawDescHTML=ACSRich.render(p.description,{youtubeHTML:id=>'<iframe title="Video" src="'+esc(ACSRich.videoEmbedSrc(id))+'" allowfullscreen></iframe>'});
+ const descHTML=isLongDesc
+  ?('<div class="product-desc-collapsible is-collapsed" id="desc-'+pid+'">'
+    +'<div class="product-desc-inner" style="max-height:8.5rem;overflow:hidden;position:relative;-webkit-mask-image:linear-gradient(to bottom,black 60%,transparent 100%);mask-image:linear-gradient(to bottom,black 60%,transparent 100%)">'
+    +rawDescHTML
+    +'</div>'
+    +'<button type="button" class="product-desc-toggle-btn" style="background:none;border:none;color:#1e5c8a;font-weight:700;font-size:13px;cursor:pointer;padding:6px 0;display:inline-flex;align-items:center;gap:4px" onclick="const b=this.closest(\'.product-desc-collapsible\');const c=b.classList.toggle(\'is-collapsed\');const i=b.querySelector(\'.product-desc-inner\');i.style.maxHeight=c?\'8.5rem\':\'none\';i.style.maskImage=c?\'linear-gradient(to bottom,black 60%,transparent 100%)\':\'none\';i.style.webkitMaskImage=c?\'linear-gradient(to bottom,black 60%,transparent 100%)\':\'none\';this.textContent=c?\'Xem thêm mô tả ▼\':\'Thu gọn ▲\'">Xem thêm mô tả ▼</button>'
+    +'</div>')
+  :rawDescHTML;
+
  const isCard=p.display_layout==='card';
- const descHTML=ACSRich.render(p.description,{youtubeHTML:id=>'<iframe title="Video" src="https://www.youtube-nocookie.com/embed/'+id+'" allowfullscreen></iframe>'});
  const actHTML='<div class="row" style="gap:8px;margin-top:10px">'
   +(buy?'<a target="_blank" rel="noopener" class="btn" style="background:#1e5c8a;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700" href="'+esc(buy)+'">'+esc(p.button_label||'Tìm hiểu thêm')+'</a>':'')
-  +(p.video_url?'<a target="_blank" rel="noopener" class="btn alt" style="border:2px solid #236594;color:#164363;padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700" href="'+esc(ACSRich.url(p.video_url))+'">'+esc(p.video_button_label||'Mở xem video')+'</a>':'')
+  +(p.video_url?'<a target="_blank" rel="noopener" class="btn alt" style="border:2px solid #236594;color:#164363;padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700" href="'+esc(ACSRich.videoEmbedSrc(p.video_url)||p.video_url)+'">'+esc(p.video_button_label||'Xem video')+'</a>':'')
   +'</div>';
- const embedVid=vid?'<div style="margin-top:10px"><iframe style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px" src="https://www.youtube-nocookie.com/embed/'+vid+'" allowfullscreen></iframe></div>':'';
+ const embedVid=vid?'<div style="margin-top:10px"><iframe style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px" src="'+esc(ACSRich.videoEmbedSrc(vid))+'" allowfullscreen></iframe></div>':'';
 
  if(isCard){
   return '<aside class="product" style="padding:14px;border:2px solid #ccc;border-radius:12px;background:#fff">'
    +galleryHTML
-   +'<span class="muted small" style="color:#666">'+esc(badge)+'</span>'
+   +(badge?'<span class="muted small" style="color:#666;font-size:13px">'+esc(badge)+'</span>':'')
    +'<h3 style="margin:4px 0">'+esc(p.name)+'</h3>'
    +'<div style="color:#e53935;font-weight:800;font-size:18px;margin:4px 0">'+esc(priceStr)+'</div>'
    +descHTML
@@ -236,7 +255,7 @@ function productHTML(id,override){
  return '<aside class="product product-detail-layout" style="display:grid;grid-template-columns:minmax(240px,360px) minmax(0,1fr);gap:20px;padding:20px;border:2px solid #cbbe9f;border-radius:14px;background:#fdfcf9;width:100%;max-width:100%;box-sizing:border-box">'
   +'<div style="min-width:0;width:100%">'+galleryHTML+'</div>'
   +'<div style="min-width:0;width:100%">'
-  +'<span class="muted small" style="color:#666">'+esc(badge)+'</span>'
+  +(badge?'<span class="muted small" style="color:#666;font-size:13px">'+esc(badge)+'</span>':'')
   +'<h3 style="margin:4px 0;font-size:20px;color:#103652">'+esc(p.name)+'</h3>'
   +'<div style="color:#e53935;font-weight:800;font-size:20px;margin:6px 0">'+esc(priceStr)+'</div>'
   +'<div style="font-size:14px;line-height:1.6">'+descHTML+'</div>'
@@ -387,12 +406,12 @@ async function saveAnnouncementSetting(notifObj){
   setBusy(false);
  }
 }
-function renderRich(v){return ACSRich.render(v,{productsHTML:(ids,node)=>'<div class="products '+(node?.getAttribute?.('align')==='left'?'align-left':(node?.getAttribute?.('align')==='right'?'align-right':'align-center'))+'">'+ids.map(id=>productHTML(id)).join('')+'</div>',youtubeHTML:(id,node)=>'<iframe loading="lazy" title="Video YouTube" src="https://www.youtube-nocookie.com/embed/'+id+'" allowfullscreen></iframe>'});}
+function renderRich(v){return ACSRich.render(v,{productsHTML:(ids,node)=>'<div class="products '+(node?.getAttribute?.('align')==='left'?'align-left':(node?.getAttribute?.('align')==='right'?'align-right':'align-center'))+'">'+ids.map(id=>productHTML(id)).join('')+'</div>',youtubeHTML:(id,node)=>'<figure class="youtube-block" style="margin:12px 0"><div style="position:relative;width:100%;aspect-ratio:16/9;background:#111;border-radius:10px;overflow:hidden"><iframe style="position:absolute;inset:0;width:100%;height:100%;border:0" loading="lazy" title="Video" src="'+esc(ACSRich.videoEmbedSrc(id))+'" allowfullscreen></iframe></div>'+(node?.getAttribute?.('title')?'<figcaption class="small muted" style="text-align:center;margin-top:6px">'+esc(node.getAttribute('title'))+'</figcaption>':'')+'</figure>'});}
 function show(html){el('modal-body').innerHTML=html;el('modal').showModal();}
 function preview(){sync();let html='';if(table==='Articles')html='<h2>'+esc(draft.title)+'</h2>'+articleBlocks().map(b=>renderRich(b.content)).join('');if(table==='Tips')html=renderRich(draft.content);if(table==='Products')html=productHTML(selected,draft);if(table==='Exercises')html='<h2>'+esc(draft.name)+'</h2><ol>'+ACSRich.steps(draft.steps).map(v=>'<li>'+renderRich(v)+'</li>').join('')+'</ol>'+renderRich(draft.tip);show('<p class="muted">Xem trước nội dung; CSS riêng của website không áp dụng ở đây.</p><div class="preview">'+html+'</div>');}
 function remember(n){if(n)activeRich=n;const sel=window.getSelection();if(activeRich&&sel.rangeCount&&activeRich.contains(sel.anchorNode))selection=sel.getRangeAt(0).cloneRange();}
 function restore(){if(!activeRich)return false;activeRich.focus();const s=window.getSelection();s.removeAllRanges();if(selection&&activeRich.contains(selection.startContainer))s.addRange(selection);else{const r=document.createRange();r.selectNodeContents(activeRich);r.collapse(false);s.addRange(r);}return true;}
-function insertHTML(html){el('modal').close();if(editingChip?.isConnected){const chip=editingChip,parent=chip.parentNode,next=chip.nextSibling,t=document.createElement('template');t.innerHTML=html;const last=t.content.lastChild;chip.replaceWith(t.content);activeRich.focus();const r=document.createRange();if(last)r.setStartAfter(last);else if(next)r.setStartBefore(next);else{r.selectNodeContents(parent);r.collapse(false);}r.collapse(true);selection=r;editingChip=null;}else{if(!restore())return;document.execCommand('insertHTML',false,html);}dirty=true;remember();el('modal').close();}
+function insertHTML(html){el('modal').close();if(editingChip?.isConnected){const chip=editingChip,parent=chip.parentNode,next=chip.nextSibling,t=document.createElement('template');t.innerHTML=html;const last=t.content.lastChild;chip.replaceWith(t.content);activeRich.focus();const r=document.createRange();if(last)r.setStartAfter(last);else if(next)r.setStartBefore(next);else{r.selectNodeContents(parent);r.collapse(false);}r.collapse(true);selection=r;editingChip=null;}else{if(!restore())return;if(html.startsWith('<acs-')){const t=document.createElement('template');t.innerHTML=html;const frag=t.content;const last=frag.lastChild;const sel=window.getSelection();if(sel&&sel.rangeCount){const range=sel.getRangeAt(0);range.deleteContents();range.insertNode(frag);const r=document.createRange();if(last)r.setStartAfter(last);r.collapse(true);sel.removeAllRanges();sel.addRange(r);selection=r;}}else{document.execCommand('insertHTML',false,html);}}dirty=true;remember();el('modal').close();}
 function selectChip(chip){activeRich=chip.closest('.rich-editor');const r=document.createRange();r.selectNode(chip);selection=r;}
 function insertDialog(kind,chip){editingChip=chip||null;if(chip)selectChip(chip);if(!activeRich){status('Chạm vào vị trí cần chèn trong nội dung trước.',true);return;}if(kind==='unlink'){if(restore()){document.execCommand('unlink');dirty=true;}return;}
  if(kind==='products'){
@@ -540,10 +559,10 @@ function insertDialog(kind,chip){editingChip=chip||null;if(chip)selectChip(chip)
   const curVid=chip?chip.getAttribute('video'):'';
   const curTitle=chip?chip.getAttribute('title')||'':'';
   show('<h2>'+(chip?'Thay đổi video':'Chèn video')+'</h2>'
-    +'<label>Link video YouTube hoặc Shorts'
-    +  '<input id="insert-url" value="'+(curVid?'https://youtu.be/'+esc(curVid):'')+'" placeholder="Dán link YouTube (ví dụ: https://youtu.be/... hoặc link Shorts)">'
+    +'<label>Link video hoặc mã nhúng &lt;iframe&gt; (YouTube, Vimeo, Google Drive...)'
+    +  '<textarea id="insert-url" rows="3" placeholder="Dán link video (YouTube, Vimeo, Google Drive) hoặc mã nhúng &lt;iframe src=...&gt;&lt;/iframe&gt;">'+(curVid?esc(curVid):'')+'</textarea>'
     +'</label>'
-    +'<label>Dòng mô tả video (tùy chọn, thay cho chữ mặc định)'
+    +'<label>Dòng mô tả / ghi chú dưới video (tùy chọn, để trống nếu không muốn hiện chữ)'
     +  '<input id="insert-title" value="'+esc(curTitle)+'" placeholder="Ví dụ: Bài tập kéo giãn cột sống">'
     +'</label>'
     +'<label><b>Căn lề hiển thị video:</b>'
@@ -561,25 +580,26 @@ function insertDialog(kind,chip){editingChip=chip||null;if(chip)selectChip(chip)
     +  (chip?'<button class="danger" id="remove-chip">Xóa khối</button>':'')
     +'</div>');
   function updateYtPreview(){
-    const id=ACSRich.video(el('insert-url').value.trim());
+    const vid=ACSRich.video(el('insert-url').value.trim());
     const box=el('yt-preview-box');
     if(!box)return;
-    if(id){
-      box.innerHTML='<iframe style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px" src="https://www.youtube-nocookie.com/embed/'+id+'" allowfullscreen></iframe>';
+    if(vid){
+      const src=ACSRich.videoEmbedSrc(vid);
+      box.innerHTML='<iframe style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px" src="'+esc(src)+'" allowfullscreen></iframe>';
       el('insert-error').textContent='';
     }else{
-      box.innerHTML='<p class="muted">Dán link YouTube hợp lệ để xem trước video.</p>';
+      box.innerHTML='<p class="muted">Dán link video hợp lệ hoặc mã nhúng iframe để xem trước.</p>';
     }
   }
   updateYtPreview();
   el('insert-url').oninput=updateYtPreview;
   el('cancel-insert').onclick=()=>el('modal').close();
   el('apply-insert').onclick=()=>{
-    const id=ACSRich.video(el('insert-url').value.trim());
-    if(!id){el('insert-error').textContent='Link YouTube chưa đúng.';return;}
+    const vid=ACSRich.video(el('insert-url').value.trim());
+    if(!vid){el('insert-error').textContent='Link video hoặc mã nhúng chưa đúng.';return;}
     const alignVal=el('insert-align')?.value||'center';
     const titleVal=el('insert-title')?.value.trim()||'';
-    insertHTML(ACSRich.clean('<acs-youtube video="'+id+'" align="'+alignVal+'"'+(titleVal?' title="'+esc(titleVal)+'"':'')+'></acs-youtube>',{editorChip})+'<p><br></p>');
+    insertHTML(ACSRich.clean('<acs-youtube video="'+esc(vid)+'" align="'+alignVal+'"'+(titleVal?' title="'+esc(titleVal)+'"':'')+'></acs-youtube>',{editorChip})+'<p><br></p>');
   };
  }
  if(kind==='image'){show('<h2>Chèn ảnh</h2><label>Link ảnh trực tiếp (HTTPS)<input id="insert-url" placeholder="https://…/anh.jpg"></label><label>Mô tả ảnh<input id="image-alt"></label><button id="apply-insert">Chèn ảnh</button><p id="insert-error" role="alert"></p>');el('apply-insert').onclick=()=>{const url=ACSRich.url(el('insert-url').value.trim(),true);if(!url){el('insert-error').textContent='Nhập link ảnh HTTPS hợp lệ.';return;}insertHTML('<figure><img src="'+esc(url)+'" alt="'+esc(el('image-alt').value)+'"><figcaption>'+esc(el('image-alt').value)+'</figcaption></figure><p><br></p>');};}
