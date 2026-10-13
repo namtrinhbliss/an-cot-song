@@ -476,8 +476,10 @@ button:disabled{cursor:default}button,a{transition:background-color .15s,color .
 .products-row>.product-card .product-gallery-thumbs{display:none!important}
 .products-row>.product-card h3{font-size:1rem;line-height:1.35;font-weight:700;color:var(--primary-deep,#14354d);margin:.3rem 0 .2rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;height:2.7em}
 .products-row>.product-card .product-price{color:#e53935!important;font-size:1.15rem;font-weight:800;margin:.1rem 0 .4rem}
-.products-row>.product-card .product-detail-desc{font-size:.84rem;line-height:1.45;color:var(--ink2,#4a5a66);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;height:4.2em;word-break:normal;overflow-wrap:break-word;margin-bottom:.5rem}
-.products-row>.product-card .product-desc-toggle-btn{display:none!important}
+.products-row>.product-card .product-detail-desc{font-size:.84rem;line-height:1.5;color:var(--ink2,#4a5a66);word-break:normal;overflow-wrap:break-word;margin:.2rem 0 .35rem}
+.products-row>.product-card .product-desc-full{max-height:360px;overflow-y:auto;padding-right:4px;scrollbar-width:thin}
+.products-row>.product-card .product-desc-toggle-btn{display:inline-flex!important;margin:.2rem 0 .6rem;padding:.32rem .75rem;font-size:.82rem;font-weight:700;color:#184a6e;background:#edf5fa;border:1.5px solid #bdd5e3;border-radius:999px;cursor:pointer;width:fit-content;max-width:100%;transition:all .15s}
+.products-row>.product-card .product-desc-toggle-btn:hover{background:#dceef8;color:#0f3450;border-color:#8fb8d0}
 .products-row>.product-card .product-detail-actions{margin-top:auto;display:flex;flex-direction:column;gap:.45rem;width:100%}
 .products-row>.product-card .product-detail-actions .btn{width:100%!important;box-sizing:border-box!important;padding:.55rem .7rem!important;font-size:.88rem!important;font-weight:700!important;text-align:center!important;justify-content:center!important;min-width:0;border-radius:8px!important}
 .products-row>.product-card .youtube-block{margin:.3rem 0}
@@ -497,6 +499,7 @@ button:disabled{cursor:default}button,a{transition:background-color .15s,color .
 .products-section.single-product.align-left .products-row>.product-card{margin-left:0;margin-right:auto;max-width:100%}
 .products-section.single-product.align-right .products-row{justify-content:flex-end}
 .products-section.single-product.align-right .products-row>.product-card{margin-right:0;margin-left:auto;max-width:100%}
+.products-section.single-product .products-row>.product-card .product-desc-full{max-height:none!important}
 
 /* Bố cục sản phẩm chi tiết 2 cột kèm album ảnh như mẫu ảnh */
 .product-card.product-detail-layout{display:grid;grid-template-columns:minmax(260px,380px) minmax(0,1fr);gap:1.6rem;align-items:start;width:100%;max-width:100%;box-sizing:border-box;background:var(--surface2,#fbf7ee);border:2px solid var(--line,#e2dac9);border-radius:1.2rem;padding:1.3rem;margin:1.4rem 0}
@@ -1116,7 +1119,7 @@ let anatomy2D=false,anatomyViewer=null,anatomyExpanded=null,anatomyOverflow='',a
 function closeAnatomyExpanded(){if(!anatomyExpanded)return;const shell=anatomyExpanded;shell.classList.remove('anatomy-expanded');shell.removeAttribute('role');shell.removeAttribute('aria-modal');const button=shell.querySelector('[data-act=anatomy-expand]');if(button){button.innerHTML='Toàn màn hình <span class="mode-state">Tắt</span>';button.setAttribute('aria-expanded','false');}document.body.style.overflow=anatomyOverflow;anatomyExpanded=null;button?.focus();}
 function toggleAnatomyExpanded(button){if(anatomyExpanded){closeAnatomyExpanded();return;}const shell=button.closest('.anatomy-viewer-shell');anatomyExpanded=shell;anatomyOverflow=document.body.style.overflow;document.body.style.overflow='hidden';shell.classList.add('anatomy-expanded');shell.setAttribute('role','dialog');shell.setAttribute('aria-modal','true');shell.setAttribute('aria-label','Mô hình giải phẫu toàn màn hình');button.innerHTML='Toàn màn hình <span class="mode-state">Bật</span>';button.setAttribute('aria-expanded','true');}
 document.addEventListener('keydown',e=>{if(!anatomyExpanded)return;if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeAnatomyExpanded();}if(e.key==='Tab'){const buttons=[...anatomyExpanded.querySelectorAll('button:not([hidden]):not(:disabled)')];const first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}},true);
-let anatomySettings={},anatomyDragMode='rotate',anatomyBodyContext=true,anatomyFlat={scale:1,x:0,y:0},anatomyFlatObserver=null,anatomyFlatElement=null;
+let anatomySettings=(function(){try{const c=JSON.parse(localStorage.getItem('ancotsong.cms.v1'));if(c?.tables?.Settings){return Object.fromEntries(c.tables.Settings.map(r=>[r.key,r.value!==undefined&&r.value!==null?(typeof r.value==='boolean'?(r.value?'TRUE':'FALSE'):String(r.value)):'']));}}catch(_){}return {product_desc_word_limit:'200'};})(),anatomyDragMode='rotate',anatomyBodyContext=true,anatomyFlat={scale:1,x:0,y:0},anatomyFlatObserver=null,anatomyFlatElement=null;
 function paintFlat(){const layer=document.querySelector('.anatomy-flat-layer');if(layer)layer.style.transform='translate('+anatomyFlat.x+'px,'+anatomyFlat.y+'px) scale('+anatomyFlat.scale+')';}
 function mountFlat(){const el=document.getElementById('anatomy-flat');if(el!==anatomyFlatElement){anatomyFlatObserver?.disconnect();anatomyFlatObserver=null;anatomyFlatElement=el;}if(!el)return;paintFlat();if(el.dataset.mounted)return;el.dataset.mounted='true';const layer=el.querySelector('.anatomy-flat-layer');anatomyFlatObserver=new ResizeObserver(()=>{const w=Math.min(el.clientWidth,el.clientHeight*5/6);layer.style.width=w+'px';layer.style.height=w*6/5+'px';});anatomyFlatObserver.observe(el);let down;el.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;down={id:e.pointerId,x:e.clientX,y:e.clientY,ox:anatomyFlat.x,oy:anatomyFlat.y};el.setPointerCapture(e.pointerId);});el.addEventListener('pointermove',e=>{if(!down||e.pointerId!==down.id)return;anatomyFlat.x=down.ox+e.clientX-down.x;anatomyFlat.y=down.oy+e.clientY-down.y;paintFlat();});const end=()=>down=null;el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);}
 function zoomAnatomy(factor){if(!anatomy2D){anatomyViewer?.zoom(factor);return;}anatomyFlat.scale=Math.max(.7,Math.min(6,anatomyFlat.scale/factor));paintFlat();}
@@ -2074,7 +2077,7 @@ function productHTML(id,layoutMode){
  }
 
  const isCard=(layoutMode==='card')||(layoutMode!=='detail'&&p.display_layout==='card');
- const descLimit=Math.max(20,Number(anatomySettings?.product_desc_word_limit)||80);
+ const descLimit=Math.max(20,Number(anatomySettings?.product_desc_word_limit)||200);
  const rawDescText=ACSRich.text(p.description||'');
  const wordCount=rawDescText.trim().split(/\s+/).filter(Boolean).length;
  const isLongDesc=wordCount>descLimit;
@@ -2088,7 +2091,7 @@ function productHTML(id,layoutMode){
   descHTML='<div class="product-desc-collapsible is-collapsed" id="desc_'+instanceId+'">'
    +'<div class="product-desc-preview product-detail-desc">'+previewHTML+'</div>'
    +'<div class="product-desc-full product-detail-desc">'+rawDescHTML+'</div>'
-   +'<button type="button" class="product-desc-toggle-btn" data-act="toggle-product-desc" data-target="desc_'+instanceId+'" aria-expanded="false">Xem thêm mô tả'+(remainingWords>0?' ('+remainingWords+' từ còn lại)':'')+' <span class="arrow">▼</span></button>'
+   +'<button type="button" class="product-desc-toggle-btn" data-act="toggle-product-desc" data-target="desc_'+instanceId+'" data-remaining="'+remainingWords+'" aria-expanded="false">Xem thêm (xem đầy đủ)'+(remainingWords>0?' · '+remainingWords+' từ còn lại':'')+' <span class="arrow">▼</span></button>'
    +'</div>';
  }
 
@@ -2365,8 +2368,9 @@ document.addEventListener('click',e=>{
   if(box){
    const isCollapsed=box.classList.toggle('is-collapsed');
    toggleDesc.setAttribute('aria-expanded',!isCollapsed);
+   const rem=Number(toggleDesc.dataset.remaining)||0;
    toggleDesc.innerHTML=isCollapsed
-    ?'Xem thêm mô tả <span class="arrow">▼</span>'
+    ?('Xem thêm (xem đầy đủ)'+(rem>0?' · '+rem+' từ còn lại':'')+' <span class="arrow">▼</span>')
     :'Thu gọn mô tả <span class="arrow">▲</span>';
   }
   return;

@@ -162,8 +162,8 @@ function settingValueField(draft){
  }
  if(k==='product_desc_word_limit'){
   return '<label>Số từ mô tả hiển thị xem trước'
-   +'<input data-field="value" type="number" min="10" max="2000" step="5" value="'+esc(v||'80')+'">'
-   +'<span class="small muted" style="color:#5f788a;font-size:12px;margin-top:4px;display:block">Ví dụ đặt 200 từ: Sản phẩm sẽ hiển thị đúng 200 từ mô tả đầu tiên. Phần nội dung còn lại sẽ được thu gọn và hiện nút "Xem thêm mô tả" để người dùng bấm mở rộng.</span>'
+   +'<input data-field="value" type="number" min="10" max="2000" step="5" value="'+esc(v||'200')+'">'
+   +'<span class="small muted" style="color:#5f788a;font-size:12px;margin-top:4px;display:block">Ví dụ đặt 200 từ: Sản phẩm sẽ hiển thị đúng 200 từ mô tả đầu tiên. Phần nội dung còn lại sẽ được thu gọn và hiện nút "Xem thêm (xem đầy đủ)" để người dùng bấm mở rộng.</span>'
    +'</label>';
  }
  if(k==='custom_head_code'||k==='tracking_scripts'){
@@ -312,7 +312,7 @@ function productHTML(id,override,layoutMode){
 
  const plainDesc=ACSRich.text(p.description);
  const wordCount=plainDesc.split(/\s+/).filter(Boolean).length;
- const limitSetting=Number(state?.tables?.Settings?.find(s=>s.key==='product_desc_word_limit')?.value)||80;
+ const limitSetting=Number(state?.tables?.Settings?.find(s=>s.key==='product_desc_word_limit')?.value)||200;
  const isLongDesc=wordCount>limitSetting;
  const rawDescHTML=ACSRich.render(p.description,{youtubeHTML:id=>'<iframe title="Video" src="'+esc(ACSRich.videoEmbedSrc(id))+'" allowfullscreen></iframe>'});
  let descHTML='';
@@ -324,7 +324,7 @@ function productHTML(id,override,layoutMode){
   descHTML='<div class="product-desc-collapsible is-collapsed" id="desc-'+pid+'">'
    +'<div class="product-desc-preview" style="display:block">'+previewHTML+'</div>'
    +'<div class="product-desc-full" style="display:none">'+rawDescHTML+'</div>'
-   +'<button type="button" class="product-desc-toggle-btn" style="background:none;border:none;color:#1e5c8a;font-weight:700;font-size:13px;cursor:pointer;padding:6px 0;display:inline-flex;align-items:center;gap:4px" onclick="const b=this.closest(\'.product-desc-collapsible\');const c=b.classList.toggle(\'is-collapsed\');const p=b.querySelector(\'.product-desc-preview\');const f=b.querySelector(\'.product-desc-full\');p.style.display=c?\'block\':\'none\';f.style.display=c?\'none\':\'block\';this.textContent=c?\'Xem thêm mô tả ('+remainingWords+' từ còn lại) ▼\':\'Thu gọn ▲\'">Xem thêm mô tả ('+remainingWords+' từ còn lại) ▼</button>'
+   +'<button type="button" class="product-desc-toggle-btn" style="background:#edf5fa;border:1.5px solid #bdd5e3;color:#184a6e;font-weight:700;font-size:12.5px;cursor:pointer;padding:4px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;margin-top:6px" onclick="const b=this.closest(\'.product-desc-collapsible\');const c=b.classList.toggle(\'is-collapsed\');const p=b.querySelector(\'.product-desc-preview\');const f=b.querySelector(\'.product-desc-full\');p.style.display=c?\'block\':\'none\';f.style.display=c?\'none\':\'block\';this.textContent=c?\'Xem thêm (xem đầy đủ)'+(remainingWords>0?' · '+remainingWords+' từ còn lại':'')+' ▼\':\'Thu gọn mô tả ▲\'">Xem thêm (xem đầy đủ)'+(remainingWords>0?' · '+remainingWords+' từ còn lại':'')+' ▼</button>'
    +'</div>';
  }
 
