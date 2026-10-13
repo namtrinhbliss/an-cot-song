@@ -11,9 +11,9 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function url(v,image=false){try{const u=new URL(v);return (u.protocol==='https:'||(!image&&['http:','mailto:','tel:'].includes(u.protocol)))?u.href:'';}catch(e){return '';}}
 function video(v){if(!v)return '';const m=String(v).match(/<iframe\b[^>]*\bsrc=["']([^"']+)["']/i);if(m)v=m[1];const s=String(v).trim();if(/^[\w-]{11}$/.test(s))return s;try{const u=new URL(s),h=u.hostname.toLowerCase();if(h==='youtu.be')return u.pathname.split('/')[1]||'';if(['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(h)){return u.searchParams.get('v')||u.pathname.split('/').find((p,i,a)=>['embed','shorts','live'].includes(a[i-1]))||'';}if(u.protocol==='https:')return s;}catch(_){}return '';}
 function videoEmbedSrc(v){if(!v)return '';const m=String(v).match(/<iframe\b[^>]*\bsrc=["']([^"']+)["']/i);if(m)v=m[1];const s=String(v).trim();if(/^[\w-]{11}$/.test(s))return 'https://www.youtube-nocookie.com/embed/'+s+'?playsinline=1';if(/^https:\/\//i.test(s)){if(/vimeo\.com/i.test(s)){const vmId=s.split('/').filter(Boolean).pop();return 'https://player.vimeo.com/video/'+vmId;}if(/drive\.google\.com/i.test(s)){return s.replace(/\/view(\?.*)?$/,'/preview');}return s;}return '';}
-function decode(v){if(!String(v||'').startsWith(PREFIX))return null;try{const d=JSON.parse(v.slice(PREFIX.length));return d.v===1&&typeof d.html==='string'?d.html:null;}catch(e){return null;}}
+function decode(v){if(String(v||'').startsWith(PREFIX)){try{const d=JSON.parse(v.slice(PREFIX.length));return d.v===1&&typeof d.html==='string'?d.html:null;}catch(e){return null;}}const s=String(v||'');if(/<\/?(p|div|h[1-6]|ul|ol|li|strong|b|em|i|u|s|blockquote|br|hr|span|a|img|figure|figcaption|iframe|table)\b/i.test(s)){return s;}return null;}
 function legacy(v){return String(v||'').split(/(\[\[(?:product|products|youtube):[^\]]*\]\]|<acs-(?:products|youtube)\b[^>]*>[\s\S]*?<\/acs-(?:products|youtube)>)/gi).map(t=>{const mTag=t.match(/^<acs-(products|youtube)\b([^>]*)>[\s\S]*?<\/acs-(products|youtube)>$/i);if(mTag)return t;const m=t.match(/^\[\[(product|products|youtube):([^\]]*)\]\]$/i);if(!m)return esc(t).replace(/\n/g,'<br>');return m[1].toLowerCase()==='youtube'?'<acs-youtube video="'+esc(video(m[2].trim()))+'"></acs-youtube>':'<acs-products ids="'+esc(m[2].trim())+'"></acs-products>';}).join('');}
-function clean(html,options={}){let cleanInput=String(html||'').replace(/<p>\s*Nguồn:\s*[^<]*<\/p>/gi,'').replace(/Nguồn:\s*[\w-:\/.]+/gi,'');const src=document.createElement('template');src.innerHTML=cleanInput;const out=document.createElement('div');const tags=new Set(['P','DIV','H2','H3','H4','STRONG','B','EM','I','U','S','BLOCKQUOTE','UL','OL','LI','BR','HR','A','IMG','SPAN','FIGURE','FIGCAPTION']);
+function clean(html,options={}){let cleanInput=String(html||'').replace(/<p>\s*Nguồn:\s*[^<]*<\/p>/gi,'').replace(/Nguồn:\s*[\w-:\/.]+/gi,'').replace(/\[\[(product|products):([^\]]*)\]\]/gi,(m,type,val)=>'<acs-products ids="'+esc(val.trim())+'"></acs-products>').replace(/\[\[youtube:([^\]]*)\]\]/gi,(m,val)=>'<acs-youtube video="'+esc(video(val.trim()))+'"></acs-youtube>');const src=document.createElement('template');src.innerHTML=cleanInput;const out=document.createElement('div');const tags=new Set(['P','DIV','H2','H3','H4','STRONG','B','EM','I','U','S','BLOCKQUOTE','UL','OL','LI','BR','HR','A','IMG','SPAN','FIGURE','FIGCAPTION']);
 function walk(node,parent){if(node.nodeType===3){const t=node.textContent.replace(/Mã:\s*[\w-]+\s*·\s*Mở xem video/gi,'').replace(/▶\s*Video(\s*YouTube)?/gi,'').replace(/Nguồn:\s*[^\s<]*/gi,'').replace(/Nguồn:\s*/gi,'');if(!t.trim()&&node.textContent.trim())return;parent.append(document.createTextNode(t));return;}if(node.nodeType!==1)return;const tag=node.tagName;if(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','SVG','MATH','FORM','INPUT','BUTTON','TEXTAREA'].includes(tag))return;
   if(tag==='ACS-PRODUCTS'){const ids=[...new Set(String(node.getAttribute('ids')||'').split(',').map(x=>x.trim()).filter(x=>x&&!/[\[\]<>"'\s]/.test(x)))];if(!ids.length)return;
    if(options.productsHTML){const t=document.createElement('template');t.innerHTML=options.productsHTML(ids,node);parent.append(t.content);return;}
@@ -35,7 +35,7 @@ function text(v){const box=document.createElement('div');box.innerHTML=editor(v)
 function steps(v){if(String(v||'').startsWith(STEP)){try{const d=JSON.parse(v.slice(STEP.length));if(d.v===1&&Array.isArray(d.steps))return d.steps.map(String);}catch(e){}}return String(v||'').split('\n');}
 global.ACSRich={PREFIX,STEP,esc,url,video,videoEmbedSrc,clean,editor,encode,render,text,steps,encodeSteps:steps=>STEP+JSON.stringify({v:1,steps})};
 })(window);
-</script><style>.anatomy-tools-panel{border:1px solid var(--line);border-radius:1rem;background:var(--surface);padding:.4rem .7rem}.anatomy-tools-panel>summary{cursor:pointer;min-height:44px;padding:.45rem;font-weight:700;color:var(--primary-deep)}.anatomy-tools-panel>summary:focus-visible{outline:3px solid var(--primary)}.anatomy-tools-panel[open]>.anatomy-tools{padding:.5rem 0}.anatomy-expanded .anatomy-tools-panel{max-height:30dvh;overflow:auto}.acs-rich{line-height:1.75;overflow-wrap:anywhere;min-width:0}.acs-rich img{display:block;max-width:100%;height:auto;max-height:650px;object-fit:contain;margin:.8rem auto;border-radius:.6rem}.acs-rich figure{margin:1rem 0}.acs-rich figcaption{text-align:center;font-size:.85em;color:var(--muted)}.acs-rich blockquote{margin:1rem 0;border-left:4px solid var(--primary);padding:.5rem 1rem;background:var(--primary-soft)}.acs-rich a{color:var(--primary-deep);text-decoration:underline}.acs-rich p:first-child{margin-top:0}.acs-rich li{margin:.35rem 0}.acs-rich h2,.acs-rich h3,.acs-rich h4{line-height:1.3}.steps li>div{min-width:0;flex:1}.note>div{flex:1 1 12rem;min-width:0;max-width:100%}.note .product-card .btn{white-space:normal;min-width:0}.quick .q{min-width:0}.quick .q .pic{max-width:100%;height:auto;aspect-ratio:1;box-sizing:border-box}.acs-rich .youtube-player iframe{max-width:100%}.product-card .acs-rich{font-size:.95em}.lesson .acs-rich{max-width:65ch;margin-inline:auto}@media(max-width:600px){.anatomy-tools-panel>summary{font-size:.9em}.acs-rich img{max-height:480px}}</style><script>(function(){try{var raw=localStorage.getItem('ancotsong.cms.v1');if(raw){var d=JSON.parse(raw);var s=(d.tables&&d.tables.Settings)||[];var f=s.find(function(x){return x.key==='chat_bubble_enabled'});if(f){var v=f.value;if(v===false||v==='FALSE'||String(v).toLowerCase()==='false'||v==='0'||String(v).toLowerCase()==='off'||String(v).toLowerCase()==='tat'||String(v).toLowerCase()==='tắt'||String(v).toLowerCase()==='an'||String(v).toLowerCase()==='ẩn'){document.documentElement.classList.add('hide-chat-bubble');}}}}catch(_){}})();</script></head><body>
+</script><style>.anatomy-tools-panel{border:1px solid var(--line);border-radius:1rem;background:var(--surface);padding:.4rem .7rem}.anatomy-tools-panel>summary{cursor:pointer;min-height:44px;padding:.45rem;font-weight:700;color:var(--primary-deep)}.anatomy-tools-panel>summary:focus-visible{outline:3px solid var(--primary)}.anatomy-tools-panel[open]>.anatomy-tools{padding:.5rem 0}.anatomy-expanded .anatomy-tools-panel{max-height:30dvh;overflow:auto}.acs-rich{line-height:1.75;word-break:normal;overflow-wrap:break-word;min-width:0}.acs-rich img{display:block;max-width:100%;height:auto;max-height:650px;object-fit:contain;margin:.8rem auto;border-radius:.6rem}.acs-rich figure{margin:1rem 0}.acs-rich figcaption{text-align:center;font-size:.85em;color:var(--muted)}.acs-rich blockquote{margin:1rem 0;border-left:4px solid var(--primary);padding:.5rem 1rem;background:var(--primary-soft)}.acs-rich a{color:var(--primary-deep);text-decoration:underline}.acs-rich p:first-child{margin-top:0}.acs-rich li{margin:.35rem 0}.acs-rich h2,.acs-rich h3,.acs-rich h4{line-height:1.3}.steps li>div{min-width:0;flex:1}.note>div{flex:1 1 12rem;min-width:0;max-width:100%}.note .product-card .btn{white-space:normal;min-width:0}.quick .q{min-width:0}.quick .q .pic{max-width:100%;height:auto;aspect-ratio:1;box-sizing:border-box}.acs-rich .youtube-player iframe{max-width:100%}.product-card .acs-rich{font-size:.95em}.lesson .acs-rich{max-width:65ch;margin-inline:auto}@media(max-width:600px){.anatomy-tools-panel>summary{font-size:.9em}.acs-rich img{max-height:480px}}</style><script>(function(){try{var raw=localStorage.getItem('ancotsong.cms.v1');if(raw){var d=JSON.parse(raw);var s=(d.tables&&d.tables.Settings)||[];var f=s.find(function(x){return x.key==='chat_bubble_enabled'});if(f){var v=f.value;if(v===false||v==='FALSE'||String(v).toLowerCase()==='false'||v==='0'||String(v).toLowerCase()==='off'||String(v).toLowerCase()==='tat'||String(v).toLowerCase()==='tắt'||String(v).toLowerCase()==='an'||String(v).toLowerCase()==='ẩn'){document.documentElement.classList.add('hide-chat-bubble');}}}}catch(_){}})();</script></head><body>
 <title>An Cột Sống</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -426,8 +426,8 @@ body{background:radial-gradient(120% 60% at 50% 0,#FBF5E8 0,var(--bg) 60%)}
 button:disabled{cursor:default}button,a{transition:background-color .15s,color .15s,filter .15s,box-shadow .15s}
 @media(hover:hover){button:not(:disabled):hover,a[href]:hover{background-color:var(--primary-soft);color:var(--primary-deep);box-shadow:0 0 0 3px var(--primary)}.btn:not(:disabled):hover,.sos-pill:hover,.callbig:hover{filter:brightness(1.15)}button.hot:hover{background:var(--primary);color:var(--primary-ink)}}
 .lesson-cover{display:block;flex:none;width:100%;height:12rem;max-height:16rem;object-fit:cover;border-radius:1rem;background:var(--primary-soft)}
-.product-card{padding:1rem;border:2px solid var(--line);border-radius:1rem;background:var(--surface2);display:grid;gap:.6rem;margin:1rem 0;overflow-wrap:anywhere}
-.product-card img{width:100%;max-height:12rem;object-fit:contain;border-radius:.6rem}.product-card .row{flex-wrap:wrap}.product-price{color:var(--primary-deep);font-weight:700}.sync-status{font-size:.7rem;color:var(--ink2);padding:.4rem}.sheet-h h2{min-width:0;overflow-wrap:anywhere}.sheet-h{align-items:flex-start}.sheet{max-height:92dvh}
+.product-card{padding:1rem;border:2px solid var(--line);border-radius:1rem;background:var(--surface2);display:flex;flex-direction:column;gap:.6rem;margin:1rem 0;word-break:normal;overflow-wrap:break-word;box-sizing:border-box}
+.product-card img{width:100%;max-height:12rem;object-fit:contain;border-radius:.6rem}.product-card .row{flex-wrap:wrap}.product-price{color:var(--primary-deep);font-weight:700}.sync-status{font-size:.7rem;color:var(--ink2);padding:.4rem}.sheet-h h2{min-width:0;word-break:normal;overflow-wrap:break-word}.sheet-h{align-items:flex-start}.sheet{max-height:92dvh}
 @media(max-width:600px){.sizer button{min-width:2.4rem}.top{gap:.4rem}.sos-pill{padding:.4rem .7rem}.note{padding:.7rem}.sheet{padding:.9rem}.shell{padding-inline:.6rem}}
 
 /* Explicit hover pairs: background gradients must change with text color. */
@@ -456,23 +456,31 @@ button:disabled{cursor:default}button,a{transition:background-color .15s,color .
 .youtube-block.align-right .youtube-player{margin-left:auto;margin-right:0}
 .youtube-player{position:relative;width:100%;aspect-ratio:16/9;background:#17212a;border-radius:.7rem;overflow:hidden}
 .youtube-player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-.youtube-block figcaption{margin-top:.35rem;overflow-wrap:anywhere}
+.youtube-block figcaption{margin-top:.35rem;word-break:normal;overflow-wrap:break-word}
 .youtube-block a{color:var(--primary-deep);text-decoration:underline}
 
 .products-section{margin:1.2rem 0;min-width:0;max-width:100%}
 .products-section.align-center{text-align:center}
 .products-section.align-left{text-align:left}
 .products-section.align-right{text-align:right}
-.products-row{display:flex;gap:.8rem;overflow-x:auto;max-width:100%;padding:.4rem .2rem .9rem;scroll-snap-type:x proximity;overscroll-behavior-x:contain;scrollbar-color:var(--primary) var(--surface2)}
+.products-row{display:flex;gap:1rem;overflow-x:auto;max-width:100%;padding:.5rem .2rem 1.2rem;scroll-snap-type:x proximity;overscroll-behavior-x:contain;scrollbar-color:var(--primary) var(--surface2);align-items:stretch}
 .products-section.align-center .products-row{justify-content:safe center}
 .products-section.align-left .products-row{justify-content:flex-start}
 .products-section.align-right .products-row{justify-content:flex-end}
-.products-row>.product-card{flex:0 0 min(16rem,85%);margin:0;scroll-snap-align:start;align-content:start;min-width:0;text-align:left}
-.products-row>.product-card img{height:8.5rem;object-fit:contain}
-.products-row>.product-card h3{font-size:1.05rem}
-.products-row>.product-card .btn{width:100%;padding:.55rem .7rem;min-width:0}
-.products-row>.product-card .row{display:grid;gap:.5rem}
-.products-row>.product-card .youtube-block{margin:.2rem 0}
+
+/* Multi-product carousel card: Clean, equal height, neat preview */
+.products-row>.product-card{flex:0 0 270px;width:270px;min-width:270px;max-width:85vw;margin:0;scroll-snap-align:start;align-content:start;min-width:0;text-align:left;display:flex;flex-direction:column;padding:.9rem;border-radius:1rem;background:var(--surface,#fffdf8);border:1.5px solid var(--line,#cbbe9f);box-shadow:0 4px 14px rgba(0,0,0,.05);box-sizing:border-box}
+.products-row>.product-card .product-gallery{width:100%;margin-bottom:.3rem}
+.products-row>.product-card .product-gallery-main-box{width:100%;height:170px;max-height:170px;aspect-ratio:auto;background:#ffffff;border:1.5px solid #e2edf2;border-radius:.8rem;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.products-row>.product-card .product-gallery-main-box img,.products-row>.product-card img.product-gallery-main{width:100%!important;height:100%!important;max-height:100%!important;max-width:100%!important;object-fit:contain!important;display:block!important;padding:6px;box-sizing:border-box}
+.products-row>.product-card .product-gallery-thumbs{display:none!important}
+.products-row>.product-card h3{font-size:1rem;line-height:1.35;font-weight:700;color:var(--primary-deep,#14354d);margin:.3rem 0 .2rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;height:2.7em}
+.products-row>.product-card .product-price{color:#e53935!important;font-size:1.15rem;font-weight:800;margin:.1rem 0 .4rem}
+.products-row>.product-card .product-detail-desc{font-size:.84rem;line-height:1.45;color:var(--ink2,#4a5a66);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;height:4.2em;word-break:normal;overflow-wrap:break-word;margin-bottom:.5rem}
+.products-row>.product-card .product-desc-toggle-btn{display:none!important}
+.products-row>.product-card .product-detail-actions{margin-top:auto;display:flex;flex-direction:column;gap:.45rem;width:100%}
+.products-row>.product-card .product-detail-actions .btn{width:100%!important;box-sizing:border-box!important;padding:.55rem .7rem!important;font-size:.88rem!important;font-weight:700!important;text-align:center!important;justify-content:center!important;min-width:0;border-radius:8px!important}
+.products-row>.product-card .youtube-block{margin:.3rem 0}
 .product-card .btn,.product-card a.btn,.acs-rich .product-card a.btn,.acs-rich a.btn.product-action{color:#ffffff!important;text-decoration:none!important;background:#1e5c8a linear-gradient(180deg,#2a77b0,#174b70)!important;border:1.5px solid #103652!important;font-weight:700!important;box-shadow:0 3px 8px rgba(0,0,0,.22)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
 .product-card .btn:hover,.product-card a.btn:hover,.acs-rich .product-card a.btn:hover,.acs-rich a.btn.product-action:hover{background:#256c9e linear-gradient(180deg,#3287c4,#1b567f)!important;color:#ffffff!important;box-shadow:0 4px 12px rgba(0,0,0,.3)!important}
 .product-card .btn.alt,.product-card a.btn.alt,.acs-rich .product-card a.btn.alt,.acs-rich a.btn.alt.product-video-action{color:#164363!important;background:#ffffff linear-gradient(180deg,#ffffff,#f2f7fa)!important;border:2px solid #236594!important;text-decoration:none!important;font-weight:700!important;box-shadow:0 2px 6px rgba(0,0,0,.1)!important}
@@ -482,19 +490,18 @@ button:disabled{cursor:default}button,a{transition:background-color .15s,color .
 .product-chat-action .btn-chat-ic{font-size:1.05em;line-height:1}
 
 /* Khi có 1 sản phẩm: mở rộng toàn bộ chiều rộng nội dung bài viết, không bị co ép hẹp */
-.products-section{width:100%;max-width:100%}
-.products-section.single-product .products-row{justify-content:stretch;overflow-x:visible}
-.products-section.single-product .products-row>.product-card{flex:1 1 100%;max-width:100%;margin-inline:0}
+.products-section.single-product{width:100%;max-width:100%}
+.products-section.single-product .products-row{justify-content:stretch;overflow-x:visible;padding-bottom:.4rem}
+.products-section.single-product .products-row>.product-card{flex:1 1 100%!important;width:100%!important;max-width:100%!important;min-width:0!important;margin-inline:0}
 .products-section.single-product.align-left .products-row{justify-content:flex-start}
 .products-section.single-product.align-left .products-row>.product-card{margin-left:0;margin-right:auto;max-width:100%}
 .products-section.single-product.align-right .products-row{justify-content:flex-end}
 .products-section.single-product.align-right .products-row>.product-card{margin-right:0;margin-left:auto;max-width:100%}
 
 /* Bố cục sản phẩm chi tiết 2 cột kèm album ảnh như mẫu ảnh */
-.product-card.product-detail-layout{display:grid;grid-template-columns:minmax(240px,380px) minmax(0,1fr);gap:1.4rem;align-items:start;width:100%;max-width:100%;box-sizing:border-box;background:var(--surface2,#fbf7ee);border:2px solid var(--line,#e2dac9);border-radius:1.2rem;padding:1.3rem;margin:1.4rem 0;container-type:inline-size}
-.products-row>.product-card.product-detail-layout{flex:1 1 100%!important;max-width:100%!important}
-@container (max-width:580px){.product-card.product-detail-layout{grid-template-columns:1fr!important;gap:1rem!important;padding:1rem!important}}
-@media(max-width:720px){.product-card.product-detail-layout{grid-template-columns:1fr!important;gap:1rem!important;padding:1rem!important}}
+.product-card.product-detail-layout{display:grid;grid-template-columns:minmax(260px,380px) minmax(0,1fr);gap:1.6rem;align-items:start;width:100%;max-width:100%;box-sizing:border-box;background:var(--surface2,#fbf7ee);border:2px solid var(--line,#e2dac9);border-radius:1.2rem;padding:1.3rem;margin:1.4rem 0}
+.products-section.single-product .products-row>.product-card.product-detail-layout{flex:1 1 100%!important;max-width:100%!important;width:100%!important}
+@media(max-width:720px){.product-card.product-detail-layout{grid-template-columns:1fr!important;gap:1.1rem!important;padding:1rem!important}}
 .product-detail-media{width:100%;min-width:0}
 .product-gallery{display:flex;flex-direction:column;gap:.6rem;width:100%}
 .product-gallery-main-box{position:relative;width:100%;aspect-ratio:1;background:#ffffff;border:1.5px solid var(--line,#dce6eb);border-radius:1rem;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.05)}
@@ -513,6 +520,7 @@ button:disabled{cursor:default}button,a{transition:background-color .15s,color .
 .gallery-nav-btn.prev{left:8px}
 .gallery-nav-btn.next{right:8px}
 .product-gallery-thumbs{display:flex;gap:.5rem;overflow-x:auto;padding:.2rem .1rem;scrollbar-width:thin}
+.product-card.product-detail-layout .product-gallery-thumbs{display:flex!important}
 .product-thumb-btn{flex:0 0 56px;width:56px;height:56px;border-radius:.5rem;border:2px solid var(--line,#d0dce3);background:#fff;padding:2px;cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center;transition:border-color .15s,transform .15s}
 .product-thumb-btn:hover{border-color:var(--primary,#2b5675)}
 .product-thumb-btn.active{border-color:#e53935;box-shadow:0 0 0 2px rgba(229,57,53,.3)}
@@ -520,7 +528,7 @@ button:disabled{cursor:default}button,a{transition:background-color .15s,color .
 .product-detail-info{display:flex;flex-direction:column;gap:.6rem;min-width:0}
 .product-detail-title{margin:0;font-size:1.45rem;line-height:1.35;font-weight:800;color:#173852}
 .product-price{color:#e53935!important;font-size:1.4rem;font-weight:800;letter-spacing:-0.01em}
-.product-detail-desc{font-size:.95rem;line-height:1.7;color:#222}
+.product-detail-desc{font-size:.95rem;line-height:1.7;color:#222;word-break:normal;overflow-wrap:break-word}
 .product-detail-desc p{margin:.5rem 0}
 .product-detail-desc ul{padding-left:1.2rem;margin:.5rem 0}
 .product-detail-desc li{margin:.3rem 0}
@@ -2000,8 +2008,8 @@ const CMS_CACHE='ancotsong.cms.v1';
 let cmsTexts=new Map();
 function truncateHTMLWords(html,limit){
  if(!html||limit<=0)return '';
- const template=document.createElement('template');
- template.innerHTML=html;
+ const wrapper=document.createElement('div');
+ wrapper.innerHTML=html;
  let wordCount=0,stopped=false;
  function prune(node){
   if(stopped){node.remove();return;}
@@ -2023,8 +2031,8 @@ function truncateHTMLWords(html,limit){
    Array.from(node.childNodes).forEach(prune);
   }
  }
- Array.from(template.content.childNodes).forEach(prune);
- return template.innerHTML;
+ Array.from(wrapper.childNodes).forEach(prune);
+ return wrapper.innerHTML;
 }
 function safeURL(value){try{const u=new URL(value);return /^https?:$/.test(u.protocol)?u.href:'';}catch(_){return '';}}
 function imageHTML(url,alt,cls){url=safeURL(url);return url?'<img class="'+cls+'" src="'+esc(url)+'" alt="'+esc(alt)+'" loading="lazy" referrerpolicy="no-referrer">':'';}
@@ -2037,7 +2045,7 @@ function getProductImages(p){
  const urls=raw.split(/[\n,]/).map(s=>safeURL(s.trim())).filter(Boolean);
  return Array.from(new Set(urls));
 }
-function productHTML(id){
+function productHTML(id,layoutMode){
  const p=PRODUCTS.find(x=>x.id===id); if(!p)return '<p class="muted small">Sản phẩm hiện không còn trong danh mục.</p>';
  const buy=safeURL(p.buy_url),video=safeURL(p.video_url);
  const buttonLabel=String(p.button_label||'').trim()||'Tìm hiểu thêm';
@@ -2045,7 +2053,7 @@ function productHTML(id){
  const videoLabel=String(p.video_button_label||'').trim()||'Xem video';
  const videoClass=String(p.video_button_class||'').trim();
  const rawBadge=String(p.badge_label||anatomySettings?.product_intro_label||'').trim();
- const badgeLabel=(rawBadge==='Sản phẩm tham khảo'||rawBadge==='Sản phẩm thao khảo')?'':rawBadge;
+ const badgeLabel=(rawBadge==='Sản phẩm tham khảo'||rawBadge==='Sản phẩm thao khảo'||/sản phẩm (tham|thao) khảo/i.test(rawBadge))?'':rawBadge;
  const price=Number(p.price);let priceText='Liên hệ để biết giá';
  if(Number.isFinite(price)&&p.price!=='')try{priceText=new Intl.NumberFormat('vi-VN',{style:'currency',currency:p.currency||'VND'}).format(price);}catch(_){priceText=price.toLocaleString('vi-VN')+' '+(p.currency||'VND');}
  const images=getProductImages(p);
@@ -2065,7 +2073,7 @@ function productHTML(id){
    +'</div>';
  }
 
- const isCard=p.display_layout==='card';
+ const isCard=(layoutMode==='card')||(layoutMode!=='detail'&&p.display_layout==='card');
  const descLimit=Math.max(20,Number(anatomySettings?.product_desc_word_limit)||80);
  const rawDescText=ACSRich.text(p.description||'');
  const wordCount=rawDescText.trim().split(/\s+/).filter(Boolean).length;
@@ -2147,11 +2155,11 @@ function productsRowHTML(value,align){
  const effAlign=['left','center','right'].includes(align)?align:(isSingle?'center':(align||'center'));
  const cls=['products-section','align-'+effAlign,isSingle?'single-product':''].filter(Boolean).join(' ');
  const rawRowBadge=String(anatomySettings?.product_intro_label||'').trim();
- const rowBadge=(rawRowBadge==='Sản phẩm tham khảo'||rawRowBadge==='Sản phẩm thao khảo')?'':rawRowBadge;
+ const rowBadge=(rawRowBadge==='Sản phẩm tham khảo'||rawRowBadge==='Sản phẩm thao khảo'||/sản phẩm (tham|thao) khảo/i.test(rawRowBadge))?'':rawRowBadge;
  const subText=ids.length>1?'Nhiều sản phẩm · vuốt hoặc cuộn ngang để xem thêm':rowBadge;
  return '<section class="'+cls+'"'+(rowBadge?' aria-label="'+esc(rowBadge)+'"':'')+'>'
   +(subText?'<p class="small muted">'+esc(subText)+'</p>':'')
-  +'<div class="products-row" role="region" aria-label="Hàng sản phẩm, cuộn ngang để xem thêm" tabindex="0">'+ids.map(productHTML).join('')+'</div></section>';
+  +'<div class="products-row" role="region" aria-label="Hàng sản phẩm, cuộn ngang để xem thêm" tabindex="0">'+ids.map(id=>productHTML(id,isSingle?null:'card')).join('')+'</div></section>';
 }
 function inlineProducts(text){return ACSRich.render(text,{productsHTML:(ids,node)=>productsRowHTML(ids.join(','),node?.getAttribute?.('align')),youtubeHTML:(id,node)=>youtubeHTML(id,node?.getAttribute?.('title')||'',node?.getAttribute?.('align'))});}
 
