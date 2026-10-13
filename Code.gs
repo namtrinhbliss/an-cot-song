@@ -18,7 +18,7 @@ function setup(){
  const ss=SpreadsheetApp.create('An Cột Sống — Quản trị nội dung');
  properties.setProperty('SPREADSHEET_ID',ss.getId());
  Object.keys(TABLE_HEADERS).forEach(name=>{
-  const sh=ss.insertSheet(name),headers=name==='Products'?TABLE_HEADERS[name].concat(['button_label','button_class','video_button_label','video_button_class','display_layout','badge_label','gallery_urls']):TABLE_HEADERS[name],rows=INITIAL_DATA[name]||[];
+  const sh=ss.insertSheet(name),headers=name==='Products'?TABLE_HEADERS[name].concat(['button_label','button_class','video_button_label','video_button_class','display_layout','badge_label','gallery_urls','chat_button_label','chat_button_url','chat_button_class']):TABLE_HEADERS[name],rows=INITIAL_DATA[name]||[];
   sh.getRange(1,1,1,headers.length).setValues([headers]).setBackground('#2B5675').setFontColor('#ffffff').setFontWeight('bold');
   if(rows.length)sh.getRange(2,1,rows.length,headers.length).setValues(rows.map(r=>headers.map(k=>r[k]===undefined?'':r[k])));
   sh.setFrozenRows(1);sh.getDataRange().setWrap(true).setVerticalAlignment('top');sh.setColumnWidths(1,headers.length,180);
@@ -51,7 +51,7 @@ function doGet(e){
     const values = sh.getDataRange().getValues();
     const headers = values.shift().map(v => String(v).trim());
     const required = TABLE_HEADERS[name];
-    const columns = name === 'Products' ? required.concat(['button_label','button_class','video_button_label','video_button_class','display_layout','badge_label','gallery_urls']) : required;
+    const columns = name === 'Products' ? required.concat(['button_label','button_class','video_button_label','video_button_class','display_layout','badge_label','gallery_urls','chat_button_label','chat_button_url','chat_button_class']) : required;
     required.forEach(k => {
       if (!headers.includes(k)) throw Error('Thiếu cột ' + name + '.' + k);
     });
@@ -112,7 +112,7 @@ function upgradeSheet(){
  const settings=ss.getSheetByName('Settings');
  if(!products||!settings)throw Error('Cần bảng Products và Settings');
  const headers=products.getRange(1,1,1,products.getLastColumn()).getValues()[0].map(v=>String(v).trim());
- ['button_label','button_class','video_button_label','video_button_class','display_layout','badge_label','gallery_urls'].forEach(name=>{
+ ['button_label','button_class','video_button_label','video_button_class','display_layout','badge_label','gallery_urls','chat_button_label','chat_button_url','chat_button_class'].forEach(name=>{
   if(headers.includes(name))return;
   const col=products.getLastColumn()+1;
   if(col>products.getMaxColumns())products.insertColumnAfter(products.getMaxColumns());
