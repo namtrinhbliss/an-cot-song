@@ -815,6 +815,7 @@ function insertDialog(kind,chip){editingChip=chip||null;if(chip)selectChip(chip)
     if(!ids.length){status('Bác chưa chọn sản phẩm nào.',true);return;}
     const alignVal=el('insert-align')?.value||'center';
     insertHTML(ACSRich.clean('<acs-products ids="'+ids.join(',')+'" align="'+alignVal+'"></acs-products>',{productName,editorChip})+'<p><br></p>');
+    status('✓ Đã cập nhật hàng '+ids.length+' sản phẩm vào bài viết. Bác nhớ bấm "Lưu bài viết" phía dưới để lưu lên Google Sheet nhé!');
   };
  }
  if(kind==='youtube'){
