@@ -2410,9 +2410,8 @@ function updateChatBubbleVisibility(){
  bubble.style.setProperty('display',isVisible?'flex':'none','important');
  document.documentElement.classList.toggle('hide-chat-bubble',!isVisible);
  if(!isVisible){
-  bubble.setAttribute('hidden','');
-  if(container)container.style.display='none';
- }else{
+   bubble.setAttribute('hidden','');
+  }else{
   bubble.removeAttribute('hidden');
  }
 }
@@ -3066,8 +3065,19 @@ function closeAnnouncementPopup(isTemporary=false,isTransition=false){
   if(isDraggingBubble)endBubbleDrag();
  });
 
- // Đã gỡ bỏ sự kiện tự đóng chat khi click ra ngoài để tránh làm cửa sổ chat tự biến mất khi đang dùng/đang đọc.
-  // Cửa sổ chat chỉ đóng khi người dùng chủ động bấm nút ✕ (đóng) hoặc bấm vào bóng chat để thu nhỏ.
+ document.addEventListener("click",function(event){
+  if(
+   chatContainer.style.display==="flex"
+   &&!chatContainer.contains(event.target)
+   &&!chatBubble.contains(event.target)
+   &&!event.target.closest(".nt-chat-trigger")
+   &&!event.target.closest(".open-chat-button")
+   &&!event.target.closest(".chat-trigger")
+   &&!event.target.closest("[data-nt-open-chat]")
+  ){
+   hideChatContainer();
+  }
+ });
 
  function bindChatTriggers(){
   const additionalTriggers=document.querySelectorAll(".nt-chat-trigger, .open-chat-button, .chat-trigger, [data-nt-open-chat]");
