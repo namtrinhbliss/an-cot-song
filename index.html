@@ -2397,7 +2397,8 @@ function isChatBubbleEnabled(val){
  if(val===false||val===0||val==='0')return false;
  if(val===true||val===1||val==='1')return true;
  const s=String(val??'TRUE').trim().toUpperCase();
- if(!s||s==='FALSE'||s==='0'||s==='OFF'||s==='NO'||s==='AN'||s==='ẨN'||s==='TAT'||s==='TẮT'||s==='DISABLED'||s==='HIDDEN')return false;
+ if(!s)return true;
+  if(s==='FALSE'||s==='0'||s==='OFF'||s==='NO'||s==='AN'||s==='ẨN'||s==='TAT'||s==='TẮT'||s==='DISABLED'||s==='HIDDEN')return false;
  return true;
 }
 
@@ -2861,10 +2862,17 @@ function closeAnnouncementPopup(isTemporary=false,isTransition=false){
   let top=parseFloat(element.style.top);
   if(Number.isNaN(left))left=rect.left;
   if(Number.isNaN(top))top=rect.top;
-  if(left+rect.width>viewportWidth)left=viewportWidth-rect.width-10;
-  if(left<10)left=10;
-  if(top+rect.height>viewportHeight)top=viewportHeight-rect.height-10;
-  if(top<10)top=10;
+  const w=rect.width||element.offsetWidth||375;
+  const h=rect.height||element.offsetHeight||667;
+  if(viewportWidth<=520){
+   left=Math.max(5,(viewportWidth-w)/2);
+   top=Math.max(5,(viewportHeight-h)/2);
+  }else{
+   if(left+w>viewportWidth)left=viewportWidth-w-10;
+   if(left<10)left=10;
+   if(top+h>viewportHeight)top=viewportHeight-h-10;
+   if(top<10)top=10;
+  }
   element.style.left=left+"px";
   element.style.top=top+"px";
   element.style.transform="none";
@@ -3058,19 +3066,8 @@ function closeAnnouncementPopup(isTemporary=false,isTransition=false){
   if(isDraggingBubble)endBubbleDrag();
  });
 
- document.addEventListener("click",function(event){
-  if(
-   chatContainer.style.display==="flex"
-   &&!chatContainer.contains(event.target)
-   &&!chatBubble.contains(event.target)
-   &&!event.target.closest(".nt-chat-trigger")
-   &&!event.target.closest(".open-chat-button")
-   &&!event.target.closest(".chat-trigger")
-   &&!event.target.closest("[data-nt-open-chat]")
-  ){
-   hideChatContainer();
-  }
- });
+ // Đã gỡ bỏ sự kiện tự đóng chat khi click ra ngoài để tránh làm cửa sổ chat tự biến mất khi đang dùng/đang đọc.
+  // Cửa sổ chat chỉ đóng khi người dùng chủ động bấm nút ✕ (đóng) hoặc bấm vào bóng chat để thu nhỏ.
 
  function bindChatTriggers(){
   const additionalTriggers=document.querySelectorAll(".nt-chat-trigger, .open-chat-button, .chat-trigger, [data-nt-open-chat]");
